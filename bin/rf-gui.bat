@@ -11,7 +11,7 @@ if %errorlevel% equ 0 (
     docker compose up -d
 ) else (
     rem Fallback to WSL docker if native docker is not in Windows PATH
-    wsl -d kali-linux bash -c "cd /mnt/d/Workspace/rf/rf-workbench && docker compose up -d"
+    wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-workbench && docker compose up -d"
 )
 
 echo Waiting for noVNC web server to become ready...

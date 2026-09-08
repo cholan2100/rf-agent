@@ -1,3 +1,3 @@
 @echo off
 setlocal
-wsl -d kali-linux docker %*
+wsl -d Debian docker %*

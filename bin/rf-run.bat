@@ -13,5 +13,5 @@ if %errorlevel% equ 0 (
     )
 ) else (
     rem Fallback to WSL docker if native docker is not in Windows PATH
-    wsl -d kali-linux bash -c "cd /mnt/d/Workspace/rf/rf-workbench && (docker compose exec rf-workbench %* 2>/dev/null || docker compose run --rm rf-workbench %*)"
+    wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-workbench && (docker compose exec rf-workbench %* 2>/dev/null || docker compose run --rm rf-workbench %*)"
 )
