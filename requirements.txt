@@ -1,5 +1,5 @@
 # Python RF Engineering, Simulation, and CAD Automation Dependencies
-# Used in FM Radio LNA Design and RF Workbench
+# Used in RF AI Suite and RF Workbench
 
 # RF & S-Parameter Analysis
 scikit-rf>=1.2.0

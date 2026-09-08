@@ -3,9 +3,9 @@
     "GenerationSoftware": {
       "Vendor": "KiCad",
       "Application": "Pcbnew",
-      "Version": "8.0.9-8.0.9-0~ubuntu22.04.1"
+      "Version": "10.0.4-10.0.4~ubuntu25.10.1"
     },
-    "CreationDate": "2026-09-08T19:43:39+00:00"
+    "CreationDate": "2026-09-08T22:15:20+00:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
@@ -135,31 +135,6 @@
     },
     {
       "Path": "led_board-User_4.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "led_board-User_5.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "led_board-User_6.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "led_board-User_7.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "led_board-User_8.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "led_board-User_9.gbr",
       "FileFunction": "Other,User",
       "FilePolarity": "Positive"
     }

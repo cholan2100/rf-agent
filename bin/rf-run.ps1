@@ -9,7 +9,7 @@ Set-Location $RootDir
 
 if (-not $CommandArgs) {
     Write-Host "Usage: rf-run <command> [args...]" -ForegroundColor Yellow
-    Write-Host "Example: rf-run python kicad/build_clean_lna_pcb.py" -ForegroundColor Cyan
+    Write-Host "Example: rf-run python examples/simple_led/run_pipeline.py" -ForegroundColor Cyan
     exit 1
 }
 

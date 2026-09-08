@@ -99,7 +99,7 @@ subprocess.run(cmd_svg_bot, check=True)
 print(f"  - Bottom Artwork: {svg_bot} ({os.path.getsize(svg_bot):,} bytes)")
 
 # Step 5: Export 3D STEP Model
-print("\n[Step 5/5] Exporting 3D STEP Mechanical Model...")
+print("\n[Step 5/6] Exporting 3D STEP Mechanical Model...")
 step_file = os.path.join(RENDERS_DIR, "led_board.step")
 cmd_step = [
     "kicad-cli", "pcb", "export", "step",
@@ -111,6 +111,26 @@ try:
     print(f"  - 3D STEP Model:  {step_file} ({os.path.getsize(step_file):,} bytes)")
 except Exception as e:
     print(f"  - STEP export note: {e}")
+
+# Step 6: Export Photorealistic 3D Raytrace Render
+print("\n[Step 6/6] Generating Photorealistic 3D Raytraced Render...")
+iso_png = os.path.join(RENDERS_DIR, "iso_render.png")
+cmd_render = [
+    "kicad-cli", "pcb", "render",
+    "--width", "1600",
+    "--height", "1200",
+    "--quality", "high",
+    "--rotate", "-45,0,45",
+    "--floor",
+    "--zoom", "1.2",
+    "--output", iso_png,
+    BOARD_FILE
+]
+try:
+    subprocess.run(cmd_render, timeout=180, check=True)
+    print(f"  - 3D Isometric Raytrace: {iso_png} ({os.path.getsize(iso_png):,} bytes)")
+except Exception as e:
+    print(f"  - 3D Render note: {e}")
 
 print("\n" + "=" * 70)
 print("  [SUCCESS] LED PCB MANUFACTURING PIPELINE COMPLETE!")

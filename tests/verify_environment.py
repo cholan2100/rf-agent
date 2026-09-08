@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Diagnostic & Verification Test Suite for RF Workbench Linux Environment.
-Validates all tools, Python modules, solvers, and workbenches used in FM Radio LNA Design.
+Diagnostic & Verification Test Suite for RF AI Suite / RF Workbench.
+Validates all EDA tools, Python modules, EM solvers, and CAD workbenches.
 """
 
 import sys
