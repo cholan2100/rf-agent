@@ -17,6 +17,10 @@ fi
 
 # Function to start virtual display server
 start_xvfb() {
+    # Remove stale X lock files from ungraceful shutdowns or restarts
+    local disp_num="${DISPLAY#:}"
+    rm -f "/tmp/.X${disp_num}-lock" "/tmp/.X11-unix/X${disp_num}" 2>/dev/null || true
+
     if ! pgrep -x "Xvfb" > /dev/null; then
         echo "[Entrypoint] Starting Xvfb on ${DISPLAY} (${RESOLUTION}x24)..."
         Xvfb "${DISPLAY}" -screen 0 "${RESOLUTION}x24" -ac +extension GLX +render -noreset &

@@ -20,6 +20,7 @@ services:
     volumes:
       # Project files mount (configure in .env or override via command line; defaults to parent directory)
       - "${PROJECT_PATH:-..}:/workspace"
+      - ./entrypoint.sh:/opt/rf-linux-env/entrypoint.sh:ro
       # Persistent CAD & EDA user configurations
       - rf_config:/root/.config
       - rf_local:/root/.local
