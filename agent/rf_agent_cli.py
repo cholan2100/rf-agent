@@ -23,7 +23,8 @@ from .spec import (
     PRESET_10DB_ATTENUATOR,
     PRESET_2_4GHZ_FILTER,
     PRESET_WILKINSON_DIVIDER,
-    calc_microstrip_width
+    calc_microstrip_width,
+    parse_custom_circuit
 )
 from .schematic_gen import generate_schematic
 from .pcb_gen import generate_pcb
@@ -129,9 +130,14 @@ def prompt_user_for_spec(batch_mode: bool = False, preset_choice: Optional[str] 
             return spec
 
     # Custom or customized parameters
-    console.print("\n[bold yellow]Configure RF Circuit Parameters:[/bold yellow]")
-    title = Prompt.ask("Circuit Title", default="Custom RF Board")
+    console.print("\n[bold yellow]Configure Custom RF Circuit Specification:[/bold yellow]")
+    desc = Prompt.ask(
+        "Circuit Functional Description (e.g. '6 dB Pi-attenuator', '1.5 GHz low-pass filter', 'Wideband bias tee')",
+        default="10 dB RF Pi-Attenuator"
+    )
+    title = Prompt.ask("Circuit Title", default=desc)
     f_0 = float(Prompt.ask("Center Frequency f0 (GHz)", default="1.5"))
+    z0 = float(Prompt.ask("System Characteristic Impedance Z0 (Ω)", default="50.0"))
     f_min = float(Prompt.ask("Minimum Frequency f_min (GHz)", default=str(round(max(0.01, f_0 * 0.1), 2))))
     f_max = float(Prompt.ask("Maximum Frequency f_max (GHz)", default=str(round(f_0 * 2.0, 2))))
     width = float(Prompt.ask("PCB Width (mm)", default="30.0"))
@@ -150,20 +156,38 @@ def prompt_user_for_spec(batch_mode: bool = False, preset_choice: Optional[str] 
     em_opt = Prompt.ask("EM Simulation Option", choices=["1", "2"], default="1")
     em_type = "traces" if em_opt == "1" else "full_board"
 
-    spec = CircuitSpec(
-        name=title.lower().replace(" ", "_").replace("-", "_"),
+    # Synthesize spec from description using analytical engine
+    spec = parse_custom_circuit(
+        description=desc,
         title=title,
-        topology="attenuator" if "attenuator" in title.lower() else "custom",
-        f_min_ghz=f_min,
-        f_0_ghz=f_0,
-        f_max_ghz=f_max,
+        f0_ghz=f_0,
+        z0=z0,
         width_mm=width,
         height_mm=height,
         substrate_name=sub_choice,
-        dielectric_er=er,
-        substrate_height_mm=h,
+        er=er,
+        h_mm=h,
         em_sim_type=em_type
     )
+    spec.f_min_ghz = f_min
+    spec.f_max_ghz = f_max
+
+    # Display synthesized circuit breakdown
+    console.print("\n" + "─" * 60)
+    console.print(Panel(
+        f"[bold green]Synthesized RF Design Specification:[/bold green]\n"
+        f"  • [bold]Title:[/bold]               {spec.title}\n"
+        f"  • [bold]Topology:[/bold]            {spec.topology.upper()} (detected from '{desc}')\n"
+        f"  • [bold]Components:[/bold]          " + ", ".join([f"{k}: {v.get('value')} ({v.get('role', '')})" for k, v in spec.components.items()]) + "\n"
+        f"  • [bold]Target Z0:[/bold]            {spec.z0_ohm:.1f} Ω\n"
+        f"  • [bold]RF Line Geometry:[/bold]     {spec.trace_mode} w={spec.rf_trace_width_mm:.2f}mm, s={spec.cpwg_gap_mm:.2f}mm (ε_eff={spec.effective_dielectric_constant:.2f})\n"
+        f"  • [bold]Propagation Delay:[/bold]    {spec.propagation_delay_ps_mm:.2f} ps/mm (v_p = {spec.cpwg_phase_velocity_m_s / 1e8:.3f} × 10⁸ m/s)\n"
+        f"  • [bold]Substrate:[/bold]            {spec.substrate_name} (εr={spec.dielectric_er:.2f}, h={spec.substrate_height_mm:.2f}mm)\n"
+        f"  • [bold]Dimensions:[/bold]           {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm (2 Layers)",
+        title="[cyan]⚡ AI Circuit Synthesis Confirmed[/cyan]",
+        border_style="green"
+    ))
+    Confirm.ask("Proceed with synthesized design?", default=True)
     return spec
 
 
@@ -187,29 +211,34 @@ def run_pipeline(spec: CircuitSpec, project_root: str = "projects", batch_mode: 
         # Task 1: Develop Schematic on KiCad (.kicad_sch)
         # ----------------------------------------------------
         current_task_idx = 0
-        update_act("Synthesizing KiCad 10 S-expression schematic (.kicad_sch)...")
+        update_act("Synthesizing KiCad 10 S-expression schematic & vector symbols...")
         live.update(render_dashboard(current_task_idx, frame_idx, current_activity, task_outputs))
-        time.sleep(0.4)
+        time.sleep(0.3)
 
-        sch_path = generate_schematic(spec, output_dir)
-        task_outputs[0] = f"Schematic generated: {os.path.basename(sch_path)} ({os.path.getsize(sch_path):,} bytes)"
+        sch_path, zoomed_png = generate_schematic(
+            spec, output_dir,
+            progress_callback=lambda m: (update_act(m), live.update(render_dashboard(current_task_idx, frame_idx, current_activity, task_outputs)))
+        )
+        sch_size = os.path.getsize(sch_path) if os.path.exists(sch_path) else 0
+        zoom_note = f", zoomed render: {os.path.basename(zoomed_png)}" if os.path.exists(zoomed_png) else ""
+        task_outputs[0] = f"Schematic generated: {os.path.basename(sch_path)} ({sch_size:,} bytes){zoom_note}"
         frame_idx += 1
 
         # ----------------------------------------------------
         # Task 2: Create KiCad PCB Layout (.kicad_pcb via pcbnew)
         # ----------------------------------------------------
         current_task_idx = 1
-        update_act(f"Calculating 50Ω trace width ({spec.microstrip_width_mm:.2f}mm) & placing footprints...")
+        update_act(f"Calculating {spec.z0_ohm:.0f}Ω {spec.trace_mode} (w={spec.rf_trace_width_mm:.2f}mm, s={spec.cpwg_gap_mm:.2f}mm)...")
         live.update(render_dashboard(current_task_idx, frame_idx, current_activity, task_outputs))
-        time.sleep(0.5)
+        time.sleep(0.4)
 
-        update_act("Routing RF microstrip tracks, ground pours, and via fencing...")
+        update_act("Routing collinear RF traces, pad tapers, and CPWG via fencing...")
         live.update(render_dashboard(current_task_idx, frame_idx + 1, current_activity, task_outputs))
 
         pcb_path, drc_res = generate_pcb(spec, output_dir)
         v_count = drc_res.get("violations", 0)
         w_count = drc_res.get("warnings", 0)
-        task_outputs[1] = f"PCB layout created: {os.path.basename(pcb_path)} (DRC: {v_count} errors, {w_count} warnings)"
+        task_outputs[1] = f"PCB layout created: {os.path.basename(pcb_path)} (DRC: {v_count} errors, {w_count} warnings, {spec.z0_ohm:.0f}Ω {spec.trace_mode} w={spec.rf_trace_width_mm:.2f}mm)"
         frame_idx += 1
 
         # ----------------------------------------------------

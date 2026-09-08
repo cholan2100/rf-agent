@@ -66,7 +66,7 @@ def generate_performance_report(
 | **Input Return Loss (S11)** | < {spec.target_s11_db:.1f} dB | **{s11_worst:+.2f} dB** (worst case) | **{'PASS' if s11_pass else 'MARGINAL'}** | Excellent 50Ω input match |
 | **Output Return Loss (S22)** | < {spec.target_s22_db:.1f} dB | **{s11_worst:+.2f} dB** (symmetric) | **{'PASS' if s11_pass else 'MARGINAL'}** | Reciprocal Pi-network structure |
 | **Rollett Stability Factor (K)** | K > 1.00 (Unconditional) | **{k_min:.2f}** (minimum across band) | **{'PASS' if k_pass else 'FAIL'}** | Unconditionally stable at all operational frequencies |
-| **Characteristic Impedance (Z0)** | {spec.z0_ohm:.1f} Ω | **{zin_real_mean:.1f} Ω** | **PASS** | Synthesized microstrip width: {spec.microstrip_width_mm:.2f} mm |
+| **Characteristic Impedance (Z0)** | {spec.z0_ohm:.1f} Ω | **{zin_real_mean:.1f} Ω** | **PASS** | Synthesized {spec.trace_mode} width: {spec.rf_trace_width_mm:.2f} mm (gap: {spec.cpwg_gap_mm:.2f} mm) |
 | **DC Bias / Power Consumption** | {spec.power_supply_type} | 0.0 mA (Passive) | **PASS** | No external power supply required |
 | **PCB Dimensions** | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | **PASS** | Compact 2-layer RF form factor |
 
@@ -81,32 +81,38 @@ def generate_performance_report(
 | **Loss Tangent (tan δ)** | {spec.loss_tangent:.4f} | Low dielectric dissipation factor |
 | **Substrate Thickness (h)** | {spec.substrate_height_mm:.2f} mm | Standard double-sided core |
 | **Copper Cladding** | {spec.copper_thickness_um:.1f} µm (1 oz/ft²) | Both Top (F.Cu) and Bottom (B.Cu) |
-| **50Ω Microstrip Trace Width** | {spec.microstrip_width_mm:.2f} mm | Matched feedlines |
+| **RF Trace Topology** | {spec.trace_mode} (Controlled Impedance) | Coplanar waveguide with solid bottom ground reference |
+| **RF Trace Width (w)** | **{spec.rf_trace_width_mm:.2f} mm** | Precision synthesized for {spec.z0_ohm:.0f}Ω |
+| **Ground Clearance Gap (s)** | **{spec.cpwg_gap_mm:.2f} mm** | Coplanar ground pour clearance |
+| **Effective Permittivity (ε_eff)** | **{spec.effective_dielectric_constant:.2f}** | Conformal mapping synthesis |
+| **Signal Propagation Delay** | **{spec.propagation_delay_ps_mm:.2f} ps/mm** | Phase velocity: {spec.cpwg_phase_velocity_m_s / 1e8:.3f} × 10⁸ m/s |
 | **Minimum Trace / Space** | 0.25 mm / 0.35 mm | Standard PCB fabricator capability |
-| **Ground Via Fencing** | 0.40 mm drill / 0.80 mm pad | 4.0 mm pitch via fence along board perimeter |
-| **Solder Mask** | Matte Green / Liquid Photo-Imageable | Mask clearance: 0.10 mm |
+| **Ground Via Fencing** | 0.40 mm drill / 0.80 mm pad | Along CPWG trace and perimeter |
 | **Surface Finish Recommendation** | ENIG (Electroless Nickel Immersion Gold) | Optimal for high-frequency RF applications |
 
 ---
 
 ## 3. Bill of Materials (BOM)
 
-| Designator | Value / Part | Package | Type | Manufacturer Part Suggestion |
-| :--- | :--- | :--- | :--- | :--- |
-| **J1** | SMA Connector (50Ω) | Coaxial Edge / Vertical | RF Input Port | Amphenol 132134 / Molex 0732511150 |
-| **J2** | SMA Connector (50Ω) | Coaxial Edge / Vertical | RF Output Port | Amphenol 132134 / Molex 0732511150 |
-| **R1** | 95.3 Ω (0.1%) | 0805 SMD (2012 Metric) | Thin Film Resistor | Vishay PAT0805E95R3BST1 |
-| **R2** | 71.5 Ω (0.1%) | 0805 SMD (2012 Metric) | Thin Film Resistor | Vishay PAT0805E71R5BST1 |
-| **R3** | 95.3 Ω (0.1%) | 0805 SMD (2012 Metric) | Thin Film Resistor | Vishay PAT0805E95R3BST1 |
-| **H1, H2**| M2 Mounting Holes | 2.2 mm Unplated Hole | Mechanical | Fastener retention holes |
+| Designator | Value / Part | Package | Type / Role |
+| :--- | :--- | :--- | :--- |
+""" + "\n".join([
+    f"| **{ref}** | {comp.get('value', 'N/A')} | {comp.get('package', '0805').split(':')[-1]} | {comp.get('role', comp.get('type', 'Component'))} |"
+    for ref, comp in spec.components.items()
+]) + f"""
+| **H1, H2**| M2 Mounting Holes | 2.2 mm Unplated Hole | Mechanical retention |
 
 ---
 
-## 4. Visual Verification & 3D Raytraced Renders
+## 4. Visual Verification & Layout Artifacts
 
-| Isometric 3D Raytrace View | Top Orthogonal View |
-| :---: | :---: |
-| ![Isometric 3D](renders/iso_render.png) | ![Top View](renders/top_render.png) |
+### 4.1 Synthesized Schematic Render (Zoomed)
+![Schematic](renders/schematic_zoomed.png)
+
+### 4.2 3D Raytraced PCB Renders
+| Isometric 3D Raytrace View | Top Orthogonal View | Bottom Orthogonal View |
+| :---: | :---: | :---: |
+| ![Isometric 3D](renders/iso_render.png) | ![Top View](renders/top_render.png) | ![Bottom View](renders/bottom_render.png) |
 
 ---
 

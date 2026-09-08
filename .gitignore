@@ -30,3 +30,6 @@ desktop.ini
 *.vcd
 *.raw
 *.tmp
+core*
+*.FCBak
+projects/*/cad/*.FCBak
