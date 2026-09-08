@@ -21,6 +21,8 @@ services:
       # Project files mount (configure in .env or override via command line; defaults to parent directory)
       - "${PROJECT_PATH:-..}:/workspace"
       - ./entrypoint.sh:/opt/rf-linux-env/entrypoint.sh:ro
+      # 3D Component Models for photorealistic KiCad rendering
+      - "${KICAD_3DMODELS_PATH:-/mnt/d/Programs/KiCad/share/kicad/3dmodels}:/usr/share/kicad/3dmodels:ro"
       # Persistent CAD & EDA user configurations
       - rf_config:/root/.config
       - rf_local:/root/.local
@@ -30,6 +32,8 @@ services:
       - VNC_PASSWORD=${VNC_PASSWORD:-rfworkbench}
       - PYTHONPATH=/usr/lib/freecad-python3/lib:/opt/openEMS/share/openEMS/matlab:/opt/openEMS/share/CSXCAD/matlab:/opt/kicad-mcp-server/src:/root/.local/share/FreeCAD/Mod/freecad-microwave:/workspace
       - LD_LIBRARY_PATH=/opt/openEMS/lib:/usr/local/lib
+      - KICAD6_3DMODEL_DIR=/usr/share/kicad/3dmodels
+      - KICAD7_3DMODEL_DIR=/usr/share/kicad/3dmodels
       - KICAD8_SYMBOL_DIR=/usr/share/kicad/symbols
       - KICAD8_FOOTPRINT_DIR=/usr/share/kicad/footprints
       - KICAD8_3DMODEL_DIR=/usr/share/kicad/3dmodels
