@@ -1,0 +1,41 @@
+services:
+  rf-workbench:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    image: rf-workbench:latest
+    container_name: rf-workbench-env
+    restart: unless-stopped
+    shm_size: '2gb'
+    stdin_open: true
+    tty: true
+    ports:
+      # noVNC Browser GUI: Navigate to http://localhost:6080
+      - "${WEB_PORT:-6080}:6080"
+      # Direct VNC client access
+      - "${VNC_PORT:-5900}:5900"
+      # MCP Server / API access
+      - "${MCP_PORT:-8000}:8000"
+    volumes:
+      # Project files mount (configure in .env or override via command line; defaults to parent directory)
+      - "${PROJECT_PATH:-..}:/workspace"
+      # Persistent CAD & EDA user configurations
+      - rf_config:/root/.config
+      - rf_local:/root/.local
+    environment:
+      - DISPLAY=:99
+      - RESOLUTION=${RESOLUTION:-1920x1080}
+      - VNC_PASSWORD=${VNC_PASSWORD:-rfworkbench}
+      - PYTHONPATH=/usr/lib/freecad-python3/lib:/opt/openEMS/share/openEMS/matlab:/opt/openEMS/share/CSXCAD/matlab:/opt/kicad-mcp-server/src:/root/.local/share/FreeCAD/Mod/freecad-microwave:/workspace
+      - LD_LIBRARY_PATH=/opt/openEMS/lib:/usr/local/lib
+      - KICAD8_SYMBOL_DIR=/usr/share/kicad/symbols
+      - KICAD8_FOOTPRINT_DIR=/usr/share/kicad/footprints
+      - KICAD8_3DMODEL_DIR=/usr/share/kicad/3dmodels
+    working_dir: /workspace
+
+volumes:
+  rf_config:
+    name: rf_workbench_config
+  rf_local:
+    name: rf_workbench_local

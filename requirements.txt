@@ -1,0 +1,29 @@
+# Python RF Engineering, Simulation, and CAD Automation Dependencies
+# Used in FM Radio LNA Design and RF Workbench
+
+# RF & S-Parameter Analysis
+scikit-rf>=1.2.0
+
+# Scientific Stack & Numerical Math
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+pandas>=2.0.0
+h5py>=3.8.0
+
+# CAD, Vector Geometry & Mesh Processing
+shapely>=2.0.0
+trimesh>=4.0.0
+
+# High-Resolution Rendering & Mask Processing
+pypdfium2>=4.30.0
+Pillow>=10.0.0
+cairosvg>=2.7.0
+svglib>=1.5.0
+reportlab>=4.0.0
+
+# MCP Server & Automation Helpers
+fastmcp>=0.1.0
+pyyaml>=6.0
+rich>=13.0.0
+requests>=2.31.0

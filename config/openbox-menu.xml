@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+  <menu id="root-menu" label="RF Workbench">
+    <separator label="RF Engineering Applications" />
+    <item label="KiCad 8 (Full Suite)">
+      <action name="Execute">
+        <command>kicad</command>
+      </action>
+    </item>
+    <item label="KiCad PCB Layout">
+      <action name="Execute">
+        <command>pcbnew</command>
+      </action>
+    </item>
+    <item label="KiCad Schematic Editor">
+      <action name="Execute">
+        <command>eeschema</command>
+      </action>
+    </item>
+    <item label="Qucs-S Circuit Simulator">
+      <action name="Execute">
+        <command>qucs-s</command>
+      </action>
+    </item>
+    <item label="FreeCAD (with Microwave Workbench)">
+      <action name="Execute">
+        <command>freecad</command>
+      </action>
+    </item>
+    <item label="AppCSXCAD (openEMS 3D Viewer)">
+      <action name="Execute">
+        <command>AppCSXCAD</command>
+      </action>
+    </item>
+    
+    <separator label="Utilities &amp; Tools" />
+    <item label="Terminal (Bash)">
+      <action name="Execute">
+        <command>xterm -geometry 120x40 -bg black -fg white</command>
+      </action>
+    </item>
+    <item label="Environment Diagnostic">
+      <action name="Execute">
+        <command>xterm -hold -e "rf-env-info &amp;&amp; python3 /opt/rf-linux-env/tests/verify_environment.py"</command>
+      </action>
+    </item>
+    
+    <separator />
+    <item label="Restart Window Manager">
+      <action name="Restart" />
+    </item>
+    <item label="Exit Session">
+      <action name="Exit" />
+    </item>
+  </menu>
+</openbox_menu>

@@ -1,0 +1,32 @@
+# Environment configuration
+.env
+!.env.example
+
+# Local temporary or mounted runtime data
+data/
+*.log
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor files
+.idea/
+*.swp
+*.swo
+*~
+
+# CAD / Simulation temporary run outputs
+*.dat
+*.vcd
+*.raw
+*.tmp
