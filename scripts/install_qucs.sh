@@ -11,7 +11,19 @@ echo "[1/2] Setting up ngspice compatibility symlinks..."
 ln -sf /usr/bin/ngspice /usr/local/bin/ngspice_con || true
 ln -sf /usr/bin/ngspice /usr/bin/ngspice_con || true
 
-echo "[2/2] Building Qucs-S and qucsator-rf from source..."
+echo "[2/3] Building qucsator-rf solver from source..."
+QUCSATOR_DIR="/tmp/qucsator_build"
+rm -rf "$QUCSATOR_DIR"
+mkdir -p "$QUCSATOR_DIR"
+git clone --recursive --depth 1 https://github.com/ra3xdh/qucsator_rf.git "$QUCSATOR_DIR"
+cd "$QUCSATOR_DIR"
+mkdir -p build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release ..
+make -j"$(nproc)"
+make install
+rm -rf "$QUCSATOR_DIR"
+
+echo "[3/3] Building Qucs-S GUI from source..."
 apt-get update && apt-get install -y --no-install-recommends libqt5charts5-dev dos2unix
 
 BUILD_DIR="/tmp/qucs_s_build"

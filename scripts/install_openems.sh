@@ -12,7 +12,8 @@ echo "[1/4] Installing openEMS specific build dependencies..."
 apt-get update
 apt-get install -y --no-install-recommends \
     libcgal-dev \
-    libvtk7-qt-dev \
+    libvtk9-qt-dev \
+    libvtk9-dev \
     python3-setuptools-scm \
     gengetopt \
     help2man \

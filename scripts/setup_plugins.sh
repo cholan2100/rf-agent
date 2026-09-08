@@ -7,14 +7,15 @@ echo "======================================================================"
 
 # 1. Setup RF-tools-KiCAD
 echo "[1/4] Installing RF-tools-KiCAD..."
-KICAD_PLUGIN_DIR="/root/.local/share/kicad/8.0/scripting/plugins"
-mkdir -p "$KICAD_PLUGIN_DIR"
-mkdir -p /usr/share/kicad/plugins
+KICAD_10_DIR="/root/.local/share/kicad/10.0/scripting/plugins"
+KICAD_8_DIR="/root/.local/share/kicad/8.0/scripting/plugins"
+mkdir -p "$KICAD_10_DIR" "$KICAD_8_DIR" /usr/share/kicad/plugins
 
-if [ ! -d "$KICAD_PLUGIN_DIR/RF-tools-KiCAD" ]; then
-    git clone --depth 1 https://github.com/easyw/RF-tools-KiCAD.git "$KICAD_PLUGIN_DIR/RF-tools-KiCAD"
+if [ ! -d "$KICAD_10_DIR/RF-tools-KiCAD" ]; then
+    git clone --depth 1 https://github.com/easyw/RF-tools-KiCAD.git "$KICAD_10_DIR/RF-tools-KiCAD"
 fi
-cp -rn "$KICAD_PLUGIN_DIR/RF-tools-KiCAD" /usr/share/kicad/plugins/ || true
+cp -rn "$KICAD_10_DIR/RF-tools-KiCAD" "$KICAD_8_DIR/" || true
+cp -rn "$KICAD_10_DIR/RF-tools-KiCAD" /usr/share/kicad/plugins/ || true
 
 # 2. Setup freecad-microwave Workbench
 echo "[2/4] Installing freecad-microwave workbench..."
@@ -42,7 +43,7 @@ if [ ! -d "$MCP_DIR" ]; then
 fi
 
 cd "$MCP_DIR"
-pip3 install -e . || pip3 install . || true
+pip3 install --break-system-packages --ignore-installed -e . || pip3 install --break-system-packages --ignore-installed . || true
 
 # 4. Create compatibility symlinks for Windows script paths
 echo "[4/4] Creating compatibility paths and wrappers..."

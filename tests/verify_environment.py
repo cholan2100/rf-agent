@@ -157,6 +157,7 @@ test_check("KiCad MCP Server", check_mcp_server)
 def check_rf_tools():
     try:
         paths = [
+            "/root/.local/share/kicad/10.0/scripting/plugins/RF-tools-KiCAD",
             "/root/.local/share/kicad/8.0/scripting/plugins/RF-tools-KiCAD",
             "/usr/share/kicad/plugins/RF-tools-KiCAD"
         ]
@@ -165,6 +166,15 @@ def check_rf_tools():
     except Exception as e:
         return False, str(e)
 test_check("RF-tools-KiCAD Plugin", check_rf_tools)
+
+# 14. KiCad 10 Raytracer CLI (kicad-cli pcb render)
+def check_kicad_render():
+    try:
+        res = subprocess.run(["kicad-cli", "pcb", "render", "--help"], capture_output=True, text=True, timeout=10)
+        return res.returncode == 0, "Native 3D Raytracer supported" if res.returncode == 0 else "kicad-cli pcb render not supported"
+    except Exception as e:
+        return False, str(e)
+test_check("KiCad Raytracer (pcb render)", check_kicad_render)
 
 print("=" * 70)
 total = len(results)

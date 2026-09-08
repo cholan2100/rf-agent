@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Ensure python aliases to python3 if missing
+if ! command -v python >/dev/null 2>&1; then
+    ln -sf "$(command -v python3)" /usr/local/bin/python 2>/dev/null || true
+fi
+
 # Default resolution if not provided
 RESOLUTION="${RESOLUTION:-1920x1080}"
 DISPLAY="${DISPLAY:-:99}"

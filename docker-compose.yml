@@ -33,6 +33,9 @@ services:
       - KICAD8_SYMBOL_DIR=/usr/share/kicad/symbols
       - KICAD8_FOOTPRINT_DIR=/usr/share/kicad/footprints
       - KICAD8_3DMODEL_DIR=/usr/share/kicad/3dmodels
+      - KICAD10_SYMBOL_DIR=/usr/share/kicad/symbols
+      - KICAD10_FOOTPRINT_DIR=/usr/share/kicad/footprints
+      - KICAD10_3DMODEL_DIR=/usr/share/kicad/3dmodels
     working_dir: /workspace
 
 volumes:
