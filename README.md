@@ -45,6 +45,14 @@ The underlying toolchain is linked as a Git submodule at `./rf-suite` pointing t
 
 ---
 
+## Docker Environment & Host OS Architecture
+
+The Docker container daemon location depends on the host operating system:
+- **Windows**: Docker is by default found and hosted inside the **WSL Debian** environment (`wsl -d Debian`). When running Docker commands directly on Windows, execute them via WSL: `wsl -d Debian bash -c "docker ..."`. The Windows batch scripts in `rf-suite\bin\` (`rf-run.bat`, `rf-bash.bat`, `rf-gui.bat`) automatically detect this and target the WSL Debian container environment.
+- **Linux**: Docker is typically native and accessible directly in the standard system PATH (`docker ...`).
+
+---
+
 ## Docker Readiness & Auto-Build Protocol for Agents
 
 Autonomous agents and automated CI runners must adhere to the **Turn 0 Readiness Protocol**:
@@ -52,19 +60,25 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Readiness
 1. **Test Docker Readiness**:
    Before launching any design stage (e.g. Task 1 Schematic), the agent tests whether the `rf-suite` Docker image is available:
    ```bash
-   # Check if rf-suite image exists:
+   # On Windows (Docker is in WSL Debian by default):
+   wsl -d Debian bash -c "docker images -q rf-suite:latest"
+   # Or test via the batch launcher: rf-suite\bin\rf-run.bat python --version
+
+   # On Linux (Native Docker):
    docker images -q rf-suite:latest
    ```
-   *(On Windows without Docker in native PATH, the agent checks via `wsl -d Debian bash -c "docker images -q rf-suite:latest"` or tests `rf-suite\bin\rf-run.bat python --version`).*
 
 2. **If NOT Ready (Image Missing or Needs Build)**:
    - The agent **informs the user in chat immediately**:
      > *"The `rf-suite` Docker environment is not built yet. Building the Docker image now via `rf-suite/docker-compose.yml`... This builds the container with KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python toolchain. I will keep you updated on progress."*
    - The agent triggers the build:
      ```bash
-     # Windows:
+     # On Windows (Docker in WSL Debian):
+     wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-workbench/rf-suite && docker compose build"
+     # Or if native Docker CLI is in Windows PATH:
      cd rf-suite && docker compose build
-     # Linux / WSL:
+
+     # On Linux (Native Docker):
      cd rf-suite && docker compose build
      ```
    - When the build finishes, the agent notifies the user:
