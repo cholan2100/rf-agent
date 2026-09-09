@@ -201,7 +201,46 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
     add_via(x_j2_2, y_j2_2 + 1.2)
 
-    if len(c_keys) == 2:
+    if len(c_keys) == 2 and (spec.topology == "bandpass_shunt" or "shunt" in spec.description.lower()):
+        # Shunted Parallel LC Tank bandpass filter
+        ref1, ref2 = c_keys[0], c_keys[1]
+        fp1, val1 = get_fp_for_comp(ref1)
+        fp1.SetReference(ref1)
+        fp1.SetValue(val1)
+        fp1.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0 - 3.5), mm(y_rf + 0.9125)))
+        fp1.SetOrientationDegrees(270.0)
+        board.Add(fp1)
+
+        fp2, val2 = get_fp_for_comp(ref2)
+        fp2.SetReference(ref2)
+        fp2.SetValue(val2)
+        fp2.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0 + 3.5), mm(y_rf + 0.9125)))
+        fp2.SetOrientationDegrees(270.0)
+        board.Add(fp2)
+
+        assign_pad(j1, "1", net_in)
+        assign_pad(j2, "1", net_in)
+        assign_pad(fp1, "1", net_in)
+        assign_pad(fp1, "2", net_gnd)
+        assign_pad(fp2, "1", net_in)
+        assign_pad(fp2, "2", net_gnd)
+
+        p_c1_2 = fp1.FindPadByNumber("2").GetPosition()
+        p_c2_2 = fp2.FindPadByNumber("2").GetPosition()
+        x_c1_2, y_c1_2 = p_c1_2.x / 1e6, p_c1_2.y / 1e6
+        x_c2_2, y_c2_2 = p_c2_2.x / 1e6, p_c2_2.y / 1e6
+
+        # Continuous through RF transmission line from J1 to J2
+        route_track(x_j1, y_j1, x_j2, y_j2, net_in, rf_w_mm)
+
+        # Ground vias for shunt components
+        route_track(x_c1_2, y_c1_2, x_c1_2, y_c1_2 + 1.2, net_gnd, 0.8)
+        add_via(x_c1_2, y_c1_2 + 1.2)
+
+        route_track(x_c2_2, y_c2_2, x_c2_2, y_c2_2 + 1.2, net_gnd, 0.8)
+        add_via(x_c2_2, y_c2_2 + 1.2)
+
+    elif len(c_keys) == 2:
         # Two series resonant elements (e.g. series LC tank bandpass filter)
         ref1, ref2 = c_keys[0], c_keys[1]
         fp1, val1 = get_fp_for_comp(ref1)
@@ -358,7 +397,10 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         t.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
         board.Add(t)
 
-    add_text(spec.title.split("(")[0].strip(), W / 2.0, 3.2, size=1.0)
+    title_short = spec.title.split("(")[0].strip()
+    if len(title_short) > 20:
+        title_short = f"{spec.f_0_ghz*1000.0:.0f}MHz LC Bandpass"
+    add_text(title_short, W / 2.0, 3.2, size=0.8)
     add_text("PORT 1", 4.5, 6.0, size=0.8)
     add_text("PORT 2", W - 4.5, 6.0, size=0.8)
     add_text(f"{spec.z0_ohm:.0f}Ω {spec.trace_mode} w={spec.rf_trace_width_mm:.2f} s={spec.cpwg_gap_mm:.2f}", W / 2.0 - 1.0, H - 3.2, size=0.8)

@@ -31,6 +31,8 @@ def run_em_simulation(spec: CircuitSpec, output_dir: str, progress_callback=None
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_attenuator_s_params(spec, freqs_ghz)
     elif spec.topology == "lowpass":
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_lowpass_s_params(spec, freqs_ghz)
+    elif spec.topology == "bandpass_shunt" or (spec.topology in ["bandpass", "bpf"] and "shunt" in spec.description.lower()):
+        s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_bandpass_shunt_s_params(spec, freqs_ghz)
     elif spec.topology in ["bandpass", "bpf"]:
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_bandpass_lc_s_params(spec, freqs_ghz)
     elif spec.topology == "filter":
@@ -228,3 +230,47 @@ def _solve_generic_s_params(spec: CircuitSpec, freqs_ghz: np.ndarray):
     s21 = np.full_like(freqs_ghz, 0.95)
     s11 = np.full_like(freqs_ghz, 0.05)
     return s11, np.zeros_like(s11), s21, np.zeros_like(s21), s21, np.zeros_like(s21), s11, np.zeros_like(s11)
+
+
+def _solve_bandpass_shunt_s_params(spec: CircuitSpec, freqs_ghz: np.ndarray):
+    """
+    Calculates exact physical S-parameter response for a shunted parallel LC tank bandpass filter:
+    Y_tank = 1/(R_esr + j*omega*L) + j*omega*C
+    """
+    z0 = spec.z0_ohm
+    c_comp = spec.components.get("C1", {})
+    l_comp = spec.components.get("L1", {})
+
+    c_val = float(c_comp.get("nominal_val", 26.37e-12))
+    l_val = float(l_comp.get("nominal_val", 100e-9))
+
+    # Inductor ESR parasitic: ~0.35 Ohm
+    r_esr = 0.35
+
+    omega = 2.0 * math.pi * freqs_ghz * 1e9
+
+    # Admittance of shunt parallel LC tank
+    z_inductor = r_esr + 1j * omega * l_val
+    y_inductor = 1.0 / z_inductor
+    y_capacitor = 1j * omega * c_val
+    y_shunt = y_inductor + y_capacitor
+
+    # ABCD for shunt element: S21 = 2 / (2 + Y * Z0), S11 = -Y * Z0 / (2 + Y * Z0)
+    denom = 2.0 + y_shunt * z0
+    s21 = 2.0 / denom
+    s11 = -(y_shunt * z0) / denom
+    s12 = s21
+    s22 = s11
+
+    eps_eff = spec.effective_dielectric_constant
+    v_phase = spec.cpwg_phase_velocity_m_s
+    t_line_len = (spec.width_mm - 9.0) * 1e-3
+    phase_factor = np.exp(-1j * (omega / v_phase) * t_line_len)
+
+    s11 = s11 * phase_factor**2
+    s21 = s21 * phase_factor
+    s12 = s12 * phase_factor
+    s22 = s22 * phase_factor
+
+    return np.abs(s11), np.angle(s11, deg=True), np.abs(s21), np.angle(s21, deg=True), np.abs(s12), np.angle(s12, deg=True), np.abs(s22), np.angle(s22, deg=True)
+
