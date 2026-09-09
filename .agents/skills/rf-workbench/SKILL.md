@@ -18,6 +18,11 @@ description: >-
 > * **Copper Weight**: **1 oz** ($35\,\mu\text{m}$ / $0.035\text{ mm}$).
 > * **Connectors**: **Standard 50Ω SMA Coaxial Connectors** (`SMA_IN` at port 1, `SMA_OUT` at port 2).
 > * **Transmission Line**: **50.0Ω Grounded Coplanar Waveguide (CPWG)** ($w = 1.87\text{ mm}$, $s = 0.40\text{ mm}$, $\varepsilon_{eff} = 2.88$, $v_p = 1.767 \times 10^8\text{ m/s}$).
+> * **Inductor Sourcing & Footprint Rule**:
+>   - **Default**: **0603** footprint packages (`Inductor_SMD:L_0603_1608Metric`) from **Coilcraft** (0603CS / 0603HP wirewound) or **Murata** (LQW18AN / LQG18H).
+>   - **Fallback**: If specific values are not available from these vendors in 0603 (> 470 nH up to 2.2 µH), fall back to **0805** (`Inductor_SMD:L_0805_2012Metric`), or **1206** (`Inductor_SMD:L_1206_3216Metric`) for > 2.2 µH.
+>   - **Constraint**: **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
+> * **Resistors & Capacitors**: Standard **0805 Imperial / 2012 Metric** footprint packages with $45^\circ$ neckdown tapers ($1.87\text{ mm} \rightarrow 0.80\text{ mm}$).
 
 ## Human-in-the-Loop Review Protocol (Mandatory)
 

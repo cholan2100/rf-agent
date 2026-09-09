@@ -94,13 +94,13 @@ def generate_performance_report(
 
 ## 3. Bill of Materials (BOM)
 
-| Designator | Value / Part | Package | Type / Role |
-| :--- | :--- | :--- | :--- |
+| Designator | Value / Part | Package | Manufacturer / Series | Type / Role |
+| :--- | :--- | :--- | :--- | :--- |
 """ + "\n".join([
-    f"| **{ref}** | {comp.get('value', 'N/A')} | {comp.get('package', '0805').split(':')[-1]} | {comp.get('role', comp.get('type', 'Component'))} |"
+    f"| **{ref}** | {comp.get('value', 'N/A')} | {comp.get('package', '0805').split(':')[-1]} | {comp.get('vendor', 'Standard')} {comp.get('series', '')}".strip() + f" | {comp.get('role', comp.get('type', 'Component'))} |"
     for ref, comp in spec.components.items()
 ]) + f"""
-| **H1, H2**| M2 Mounting Holes | 2.2 mm Unplated Hole | Mechanical retention |
+| **H1, H2**| M2 Mounting Holes | 2.2 mm Unplated Hole | Standard Hardware | Mechanical retention |
 
 ---
 

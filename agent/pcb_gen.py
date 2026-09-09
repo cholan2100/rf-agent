@@ -128,12 +128,28 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     def get_fp_for_comp(ref):
         comp = spec.components.get(ref, {})
         ctype = comp.get("type", "resistor")
+        pkg = comp.get("package", "")
+        if ":" in pkg:
+            lib, mod = pkg.split(":", 1)
+            try:
+                fp = load_fp(lib, mod)
+                if fp:
+                    return fp, comp.get("value", "")
+            except Exception:
+                pass
         if ctype == "capacitor":
             return load_fp("Capacitor_SMD", "C_0805_2012Metric"), comp.get("value", "100pF")
         elif ctype == "inductor":
-            return load_fp("Inductor_SMD", "L_0805_2012Metric"), comp.get("value", "100nH")
+            return load_fp("Inductor_SMD", "L_0603_1608Metric"), comp.get("value", "100nH")
         else:
             return load_fp("Resistor_SMD", "R_0805_2012Metric"), comp.get("value", "50R")
+
+    def place_shunt_fp(fp, x_center_mm, y_rf_mm):
+        fp.SetOrientationDegrees(270.0)
+        fp.SetPosition(pcbnew.VECTOR2I(0, 0))
+        p1 = fp.FindPadByNumber("1")
+        off_y = (p1.GetPosition().y / 1e6) if p1 else -0.9125
+        fp.SetPosition(pcbnew.VECTOR2I(mm(x_center_mm), mm(y_rf_mm - off_y)))
 
     # M2 Mounting Holes
     try:
@@ -207,15 +223,13 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         fp1, val1 = get_fp_for_comp(ref1)
         fp1.SetReference(ref1)
         fp1.SetValue(val1)
-        fp1.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0 - 3.5), mm(y_rf + 0.9125)))
-        fp1.SetOrientationDegrees(270.0)
+        place_shunt_fp(fp1, W / 2.0 - 3.5, y_rf)
         board.Add(fp1)
 
         fp2, val2 = get_fp_for_comp(ref2)
         fp2.SetReference(ref2)
         fp2.SetValue(val2)
-        fp2.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0 + 3.5), mm(y_rf + 0.9125)))
-        fp2.SetOrientationDegrees(270.0)
+        place_shunt_fp(fp2, W / 2.0 + 3.5, y_rf)
         board.Add(fp2)
 
         assign_pad(j1, "1", net_in)
@@ -294,8 +308,7 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         fp1, val1 = get_fp_for_comp(ref1)
         fp1.SetReference(ref1)
         fp1.SetValue(val1)
-        fp1.SetPosition(pcbnew.VECTOR2I(mm(10.5), mm(y_rf + 0.9125)))
-        fp1.SetOrientationDegrees(270.0)
+        place_shunt_fp(fp1, 10.5, y_rf)
         board.Add(fp1)
 
         fp2, val2 = get_fp_for_comp(ref2)
@@ -308,8 +321,7 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         fp3, val3 = get_fp_for_comp(ref3)
         fp3.SetReference(ref3)
         fp3.SetValue(val3)
-        fp3.SetPosition(pcbnew.VECTOR2I(mm(W - 10.5), mm(y_rf + 0.9125)))
-        fp3.SetOrientationDegrees(270.0)
+        place_shunt_fp(fp3, W - 10.5, y_rf)
         board.Add(fp3)
 
         assign_pad(fp1, "1", net_in)

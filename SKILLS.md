@@ -23,7 +23,9 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 * $v_p = 1.767 \times 10^8\text{ m/s}$, $t_{pd} = 5.66\text{ ps/mm}$
 
 > [!IMPORTANT]
-> **Default Architecture Rule**: Whenever the user does not specify PCB physical properties, the agent must ALWAYS assume standard **2-layer FR4, 1.60 mm board thickness, 1 oz copper, 50Ω CPWG, and SMA connectors** for all RF ports.
+> **Default Hardware & Component Sourcing Baseline**:
+> * **PCB Stackup**: Whenever the user does not specify PCB physical properties, ALWAYS assume standard **2-layer FR4, 1.60 mm board thickness, 1 oz copper, 50Ω CPWG, and SMA connectors** for all RF ports.
+> * **Inductor Sourcing**: Default to **0603** footprint packages from **Coilcraft** (0603CS/0603HP wirewound) or **Murata** (LQW18AN/LQG18H). If specific values are not available from these vendors in 0603 (> 470 nH up to 2.2 µH), fall back to **0805** (`Inductor_SMD:L_0805_2012Metric`), or **1206** (`Inductor_SMD:L_1206_3216Metric`) for > 2.2 µH. **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
 
 ### 1.2 Closed-Form Passive Circuit Synthesis
 * **Symmetric Pi-Attenuators**:
@@ -43,7 +45,7 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 ### 2.1 KiCad 10 S-Expression Generation
 * Generates valid `(kicad_sch ...)` syntax conforming to KiCad 10 format.
 * Symbols used: `Device:R`, `Device:C`, `Device:L`, `Connector:Conn_Coaxial`, `power:GND`.
-* Assigns standard 0805 SMD footprints (`Resistor_SMD:R_0805_2012Metric`, `Capacitor_SMD:C_0805_2012Metric`, `Inductor_SMD:L_0805_2012Metric`) and SMA vertical connectors (`Connector_Coaxial:SMA_Amphenol_132134_Vertical`).
+* Assigns standard 0805 SMD footprints for resistors and capacitors (`Resistor_SMD:R_0805_2012Metric`, `Capacitor_SMD:C_0805_2012Metric`), 0603 for inductors (`Inductor_SMD:L_0603_1608Metric`, falling back to 0805/1206 only when needed), and SMA vertical connectors (`Connector_Coaxial:SMA_Amphenol_132134_Vertical`).
 
 ### 2.2 Zoomed High-DPI Vector/Raster Rendering
 1. Vector export: `kicad-cli sch export svg --exclude-drawing-sheet --no-background-color -o <dir> <sch>`

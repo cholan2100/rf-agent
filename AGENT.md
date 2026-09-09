@@ -29,7 +29,9 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 >   - Ground clearance gap: $s = 0.40\text{ mm}$
 >   - Effective dielectric constant: $\varepsilon_{eff} = 2.88$
 >   - Phase velocity: $v_p = 1.767 \times 10^8\text{ m/s}$ ($t_{pd} = 5.66\text{ ps/mm}$)
-> * **SMD Passives**: **0805 Imperial / 2012 Metric** footprint packages with $45^\circ$ neckdown tapers ($1.87\text{ mm} \rightarrow 0.80\text{ mm}$).
+> * **SMD Passives & Inductor Sourcing**:
+>   - **Inductor Sourcing Hierarchy**: Default to **0603** footprint packages (`Inductor_SMD:L_0603_1608Metric`) from **Coilcraft** (0603CS / 0603HP wirewound) or **Murata** (LQW18AN / LQG18H). If specific values are not available from these vendors in 0603 (> 470 nH up to 2.2 µH), fall back to **0805** (`Inductor_SMD:L_0805_2012Metric`), or **1206** (`Inductor_SMD:L_1206_3216Metric`) for > 2.2 µH. **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
+>   - **Resistors & Capacitors**: Standard **0805 Imperial / 2012 Metric** footprint packages with $45^\circ$ neckdown tapers ($1.87\text{ mm} \rightarrow 0.80\text{ mm}$).
 > * **Shielding**: Continuous ground via fencing rows ($0.4\text{ mm}$ drill, $0.8\text{ mm}$ pad) and perimeter stitching.
 
 ---

@@ -207,6 +207,43 @@ def calc_microstrip_width(er: float, h_mm: float, z0: float = 50.0) -> float:
 
 
 # ----------------------------------------------------------------------
+# Inductor Sourcing & Footprint Selection Rules
+# ----------------------------------------------------------------------
+
+def select_inductor_package_and_vendor(l_val_h: float) -> dict:
+    """
+    Selects optimal RF inductor footprint, manufacturer, and series:
+    - Default to 0603 from Coilcraft (0603CS / 0603HP) or Murata (LQW18AN / LQG18H).
+      Standard high-Q wirewound RF chip ranges: ~1.0 nH up to 470 nH.
+    - If specific value not available in 0603 (> 470 nH up to 2.2 uH): fall back to 0805 (Coilcraft 0805CS/HP, Murata LQW21HN).
+    - If value > 2.2 uH (up to 10 uH): fall back to 1206 (Coilcraft 1206CS).
+    - Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary.
+    """
+    l_nh = l_val_h * 1e9
+    if l_nh <= 470.0:
+        return {
+            "package": "Inductor_SMD:L_0603_1608Metric",
+            "vendor": "Coilcraft / Murata",
+            "series": "0603CS / LQW18AN",
+            "package_name": "0603"
+        }
+    elif l_nh <= 2200.0:
+        return {
+            "package": "Inductor_SMD:L_0805_2012Metric",
+            "vendor": "Coilcraft / Murata",
+            "series": "0805CS / LQW21HN",
+            "package_name": "0805"
+        }
+    else:
+        return {
+            "package": "Inductor_SMD:L_1206_3216Metric",
+            "vendor": "Coilcraft",
+            "series": "1206CS",
+            "package_name": "1206"
+        }
+
+
+# ----------------------------------------------------------------------
 # Natural Language & Custom Circuit Description Parser
 # ----------------------------------------------------------------------
 
@@ -269,11 +306,11 @@ def parse_custom_circuit(
             substrate_height_mm=h_mm,
             em_sim_type=em_sim_type,
             components={
-                "R1": {"type": "resistor", "value": f"{r_shunt_round}R", "nominal_ohm": r_shunt_round, "package": "Resistor_SMD:R_0805_2012Metric", "role": "Shunt Input"},
-                "R2": {"type": "resistor", "value": f"{r_series_round}R", "nominal_ohm": r_series_round, "package": "Resistor_SMD:R_0805_2012Metric", "role": "Series Resistor"},
-                "R3": {"type": "resistor", "value": f"{r_shunt_round}R", "nominal_ohm": r_shunt_round, "package": "Resistor_SMD:R_0805_2012Metric", "role": "Shunt Output"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": f"RF Port 1 ({z0:.0f}Ω)"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": f"RF Port 2 ({z0:.0f}Ω)"},
+                "R1": {"type": "resistor", "value": f"{r_shunt_round}R", "nominal_ohm": r_shunt_round, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Input"},
+                "R2": {"type": "resistor", "value": f"{r_series_round}R", "nominal_ohm": r_series_round, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Series Resistor"},
+                "R3": {"type": "resistor", "value": f"{r_shunt_round}R", "nominal_ohm": r_shunt_round, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Output"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": f"RF Port 1 ({z0:.0f}Ω)"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": f"RF Port 2 ({z0:.0f}Ω)"},
             }
         )
         return spec
@@ -291,6 +328,8 @@ def parse_custom_circuit(
         # 3-pole Butterworth C-L-C
         c_val_pf = round((1.0 / (2.0 * math.pi * fc * 1e9 * z0)) * 1e12, 1)
         l_val_nh = round((2.0 * z0 / (2.0 * math.pi * fc * 1e9)) * 1e9, 1)
+        l_val_h = l_val_nh * 1e-9
+        ind_info = select_inductor_package_and_vendor(l_val_h)
         
         return CircuitSpec(
             name=f"lowpass_filter_{str(fc).replace('.', '_')}ghz",
@@ -310,11 +349,11 @@ def parse_custom_circuit(
             substrate_height_mm=h_mm,
             em_sim_type=em_sim_type,
             components={
-                "C1": {"type": "capacitor", "value": f"{c_val_pf}pF", "nominal_val": c_val_pf * 1e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "role": "Shunt Input Capacitor"},
-                "L1": {"type": "inductor", "value": f"{l_val_nh}nH", "nominal_val": l_val_nh * 1e-9, "package": "Inductor_SMD:L_0805_2012Metric", "role": "Series Inductor"},
-                "C2": {"type": "capacitor", "value": f"{c_val_pf}pF", "nominal_val": c_val_pf * 1e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "role": "Shunt Output Capacitor"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Input"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Output"},
+                "C1": {"type": "capacitor", "value": f"{c_val_pf}pF", "nominal_val": c_val_pf * 1e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Shunt Input Capacitor"},
+                "L1": {"type": "inductor", "value": f"{l_val_nh}nH", "nominal_val": l_val_h, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Series Inductor"},
+                "C2": {"type": "capacitor", "value": f"{c_val_pf}pF", "nominal_val": c_val_pf * 1e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Shunt Output Capacitor"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Input"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Output"},
             }
         )
 
@@ -330,11 +369,12 @@ def parse_custom_circuit(
                 pass
         
         # LC tank resonance: f0 = 1 / (2*pi*sqrt(L*C))
-        # Choose standard L = 100 nH -> compute C
+        # Default high-Q wirewound L = 100 nH (0603 Coilcraft/Murata) -> compute C
         omega0 = 2.0 * math.pi * f0 * 1e9
         l_h = 100e-9
         c_f = 1.0 / (omega0**2 * l_h)
         c_pf = round(c_f * 1e12, 1)
+        ind_info = select_inductor_package_and_vendor(l_h)
 
         f0_mhz_str = f"{f0 * 1000.0:.0f}MHz" if f0 < 1.0 else f"{f0:.2f}GHz"
         is_shunt = "shunt" in desc_lower
@@ -358,10 +398,10 @@ def parse_custom_circuit(
                 substrate_height_mm=h_mm,
                 em_sim_type=em_sim_type,
                 components={
-                    "C1": {"type": "capacitor", "value": f"{c_pf}pF", "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "role": "Shunt Parallel Capacitor"},
-                    "L1": {"type": "inductor", "value": "100nH", "nominal_val": 100e-9, "package": "Inductor_SMD:L_0805_2012Metric", "role": "Shunt Parallel Inductor"},
-                    "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Input"},
-                    "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Output"},
+                    "C1": {"type": "capacitor", "value": f"{c_pf}pF", "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / Johanson", "series": "GRM / High-Q C0G", "role": "Shunt Parallel Capacitor"},
+                    "L1": {"type": "inductor", "value": "100nH", "nominal_val": l_h, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Shunt Parallel Inductor"},
+                    "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Input"},
+                    "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Output"},
                 }
             )
 
@@ -383,15 +423,16 @@ def parse_custom_circuit(
             substrate_height_mm=h_mm,
             em_sim_type=em_sim_type,
             components={
-                "C1": {"type": "capacitor", "value": f"{c_pf}pF", "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "role": "Series Tank Capacitor"},
-                "L1": {"type": "inductor", "value": "100nH", "nominal_val": 100e-9, "package": "Inductor_SMD:L_0805_2012Metric", "role": "Series Tank Inductor"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Input"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Output"},
+                "C1": {"type": "capacitor", "value": f"{c_pf}pF", "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / Johanson", "series": "GRM / High-Q C0G", "role": "Series Tank Capacitor"},
+                "L1": {"type": "inductor", "value": "100nH", "nominal_val": l_h, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Series Tank Inductor"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Input"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Output"},
             }
         )
 
     # 4. Bias Tee Detection
     if "bias" in desc_lower or "tee" in desc_lower:
+        ind_info = select_inductor_package_and_vendor(100e-9)
         return CircuitSpec(
             name="bias_tee",
             title=f"Wideband RF Bias Tee ({f0_ghz:.1f} GHz, {z0:.0f}Ω)",
@@ -412,11 +453,11 @@ def parse_custom_circuit(
             substrate_height_mm=h_mm,
             em_sim_type=em_sim_type,
             components={
-                "C1": {"type": "capacitor", "value": "100pF", "nominal_val": 100e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "role": "DC Blocking Capacitor"},
-                "L1": {"type": "inductor", "value": "100nH", "nominal_val": 100e-9, "package": "Inductor_SMD:L_0805_2012Metric", "role": "RF Choke Inductor"},
-                "J1": {"type": "connector", "value": "RF_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Port (Pure RF)"},
-                "J2": {"type": "connector", "value": "RF_DC_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF+DC Output"},
-                "J3": {"type": "connector", "value": "DC_SUPPLY", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "+5V DC Power Input"},
+                "C1": {"type": "capacitor", "value": "100pF", "nominal_val": 100e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "DC Blocking Capacitor"},
+                "L1": {"type": "inductor", "value": "100nH", "nominal_val": 100e-9, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "RF Choke Inductor"},
+                "J1": {"type": "connector", "value": "RF_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Port (Pure RF)"},
+                "J2": {"type": "connector", "value": "RF_DC_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF+DC Output"},
+                "J3": {"type": "connector", "value": "DC_SUPPLY", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "+5V DC Power Input"},
             }
         )
 
