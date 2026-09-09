@@ -201,9 +201,13 @@ The automated pipeline consists of 9 sequential, modular stages:
 
 ---
 
-## CLI Usage
+## CLI Usage (Reference Only)
 
-All workflow stages can be invoked using the cross-platform launchers in `rf-suite/bin/`:
+> [!IMPORTANT]
+> **Not for Manual Execution**
+> The following CLI commands are provided strictly for reference, debugging, and to show how the autonomous AI agents interact with the internal tools. Manual CLI usage by human engineers is **not** the intended use case. This project is explicitly designed to be driven entirely by an AI Agent Harness environment.
+
+All workflow stages are invoked by the autonomous agents using the cross-platform launchers in `rf-suite/bin/`:
 
 ### Stage-by-Stage Modular Execution
 Run individual stages to review deliverables interactively between steps:
