@@ -31,6 +31,8 @@ def run_em_simulation(spec: CircuitSpec, output_dir: str, progress_callback=None
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_attenuator_s_params(spec, freqs_ghz)
     elif spec.topology == "lowpass":
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_lowpass_s_params(spec, freqs_ghz)
+    elif spec.topology in ["bandpass", "bpf"]:
+        s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_bandpass_lc_s_params(spec, freqs_ghz)
     elif spec.topology == "filter":
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_filter_s_params(spec, freqs_ghz)
     else:
@@ -157,6 +159,46 @@ def _solve_lowpass_s_params(spec: CircuitSpec, freqs_ghz: np.ndarray):
     s21 = 2.0 / denom
     s12 = 2.0 / denom
     s22 = (-A + B / z0 - C * z0 + D) / denom
+
+    eps_eff = spec.effective_dielectric_constant
+    v_phase = spec.cpwg_phase_velocity_m_s
+    t_line_len = (spec.width_mm - 9.0) * 1e-3
+    phase_factor = np.exp(-1j * (omega / v_phase) * t_line_len)
+
+    s11 = s11 * phase_factor**2
+    s21 = s21 * phase_factor
+    s12 = s12 * phase_factor
+    s22 = s22 * phase_factor
+
+    return np.abs(s11), np.angle(s11, deg=True), np.abs(s21), np.angle(s21, deg=True), np.abs(s12), np.angle(s12, deg=True), np.abs(s22), np.angle(s22, deg=True)
+
+
+def _solve_bandpass_lc_s_params(spec: CircuitSpec, freqs_ghz: np.ndarray):
+    """
+    Calculates exact physical S-parameter response for a series LC tank bandpass filter:
+    Z_tank = R_esr + j*(omega*L - 1/(omega*C))
+    """
+    z0 = spec.z0_ohm
+    c_comp = spec.components.get("C1", {})
+    l_comp = spec.components.get("L1", {})
+
+    c_val = float(c_comp.get("nominal_val", 25.33e-12))
+    l_val = float(l_comp.get("nominal_val", 100e-9))
+
+    # Parasitic ESR: ~0.35 Ohm
+    r_esr = 0.35
+
+    omega = 2.0 * math.pi * freqs_ghz * 1e9
+    with np.errstate(divide='ignore'):
+        x_c = np.where(omega > 0, -1.0 / (omega * c_val), -1e9)
+    x_l = omega * l_val
+    z_series = r_esr + 1j * (x_l + x_c)
+
+    denom = 2.0 * z0 + z_series
+    s21 = 2.0 * z0 / denom
+    s11 = z_series / denom
+    s12 = s21
+    s22 = s11
 
     eps_eff = spec.effective_dielectric_constant
     v_phase = spec.cpwg_phase_velocity_m_s

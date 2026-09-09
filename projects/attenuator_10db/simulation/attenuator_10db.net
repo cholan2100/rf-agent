@@ -1,5 +1,0 @@
-# Qucs-S Headless RF Netlist for 10 dB RF Pi-Attenuator (50Ω, DC-3GHz)
-Pac:P1 _net_in 0 Num="1" Z="50.0 Ohm" P="0 dBm" f="1.5 GHz"
-Pac:P2 _net_out 0 Num="2" Z="50.0 Ohm" P="0 dBm" f="1.5 GHz"
-2Port:X1 _net_in _net_out 0 File="projects/attenuator_10db/simulation/attenuator_10db.s2p" Type="linear"
-.SP:SP1 Type="lin" Start="0.01 GHz" Stop="3.0 GHz" Points="201" Noise="no"

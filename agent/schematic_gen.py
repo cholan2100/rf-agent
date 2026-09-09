@@ -35,6 +35,8 @@ def generate_schematic(spec: CircuitSpec, output_dir: str, progress_callback=Non
         content = _generate_attenuator_sch(spec, sch_uuid, gen_date)
     elif spec.topology == "lowpass":
         content = _generate_lowpass_sch(spec, sch_uuid, gen_date)
+    elif spec.topology in ["bandpass", "bpf"]:
+        content = _generate_bandpass_lc_sch(spec, sch_uuid, gen_date)
     elif spec.topology == "bias_tee":
         content = _generate_bias_tee_sch(spec, sch_uuid, gen_date)
     else:
@@ -281,6 +283,68 @@ def _generate_lowpass_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> s
 	(label "RF_IN" (at 45.72 73.66 0))
 	(label "RF_OUT" (at 132.08 73.66 0))
 	(text "3-Pole Butterworth Low-Pass Filter\\nfc = {spec.f_0_ghz:.2f} GHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 127.0 0) (effects (font (size 2.0 2.0))))
+)
+"""
+
+def _generate_bandpass_lc_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
+    """Generate KiCad 10 schematic for an LC Tank Bandpass Filter."""
+    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
+    u_c1, u_l1 = str(uuid.uuid4()), str(uuid.uuid4())
+    u_gnd1, u_gnd2 = str(uuid.uuid4()), str(uuid.uuid4())
+
+    c1_val = spec.components.get("C1", {}).get("value", "25.3pF")
+    l1_val = spec.components.get("L1", {}).get("value", "100nH")
+
+    return f"""(kicad_sch
+	(version 20231120)
+	(generator "rf_agent")
+	(generator_version "10.0")
+	(uuid "{root_uuid}")
+	(paper "A4")
+	(title_block
+		(title "{spec.title}")
+		(date "{gen_date}")
+		(rev "1.0")
+		(company "RF AI Suite")
+		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Resonance f0 = {spec.f_0_ghz*1000.0:.0f} MHz")
+	)
+	(lib_symbols
+{_get_common_lib_symbols()}
+	)
+	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
+		(property "Reference" "J1" (at 38.1 68.58 0))
+		(property "Value" "SMA_IN" (at 38.1 71.12 0))
+	)
+	(symbol (lib_id "Device:C") (at 76.2 76.2 90) (uuid "{u_c1}")
+		(property "Reference" "C1" (at 76.2 68.58 0))
+		(property "Value" "{c1_val}" (at 76.2 71.12 0))
+		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric" (at 76.2 76.2 0) (effects (hide yes)))
+	)
+	(symbol (lib_id "Device:L") (at 101.6 76.2 90) (uuid "{u_l1}")
+		(property "Reference" "L1" (at 101.6 68.58 0))
+		(property "Value" "{l1_val}" (at 101.6 71.12 0))
+		(property "Footprint" "Inductor_SMD:L_0805_2012Metric" (at 101.6 76.2 0) (effects (hide yes)))
+	)
+	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
+		(property "Reference" "J2" (at 139.7 68.58 0))
+		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
+	)
+	(symbol (lib_id "power:GND") (at 38.1 86.36 0) (uuid "{u_gnd1}")
+		(property "Reference" "#PWR01" (at 38.1 90.17 0) (effects (hide yes)))
+		(property "Value" "GND" (at 38.1 91.44 0))
+	)
+	(symbol (lib_id "power:GND") (at 139.7 86.36 0) (uuid "{u_gnd2}")
+		(property "Reference" "#PWR02" (at 139.7 90.17 0) (effects (hide yes)))
+		(property "Value" "GND" (at 139.7 91.44 0))
+	)
+	(wire (pts (xy 38.1 76.2) (xy 72.39 76.2)))
+	(wire (pts (xy 80.01 76.2) (xy 97.79 76.2)))
+	(wire (pts (xy 105.41 76.2) (xy 139.7 76.2)))
+	(wire (pts (xy 38.1 81.28) (xy 38.1 86.36)))
+	(wire (pts (xy 139.7 81.28) (xy 139.7 86.36)))
+	(label "RF_IN" (at 45.72 73.66 0))
+	(label "RF_OUT" (at 125.0 73.66 0))
+	(text "100 MHz LC Tank Bandpass Filter\\nf0 = {spec.f_0_ghz*1000.0:.0f} MHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 110.0 0) (effects (font (size 2.0 2.0))))
 )
 """
 

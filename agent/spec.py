@@ -318,7 +318,52 @@ def parse_custom_circuit(
             }
         )
 
-    # 3. Bias Tee Detection
+    # 3. Bandpass Filter / LC Tank Detection
+    if "bandpass" in desc_lower or "bpf" in desc_lower or "tank" in desc_lower or ("pass" in desc_lower and "high" not in desc_lower and "low" not in desc_lower):
+        f0 = f0_ghz
+        m_freq = re.search(r'(\d+(?:\.\d+)?)\s*(ghz|mhz)', desc_lower)
+        if m_freq:
+            try:
+                v = float(m_freq.group(1))
+                f0 = v if m_freq.group(2) == "ghz" else v / 1000.0
+            except Exception:
+                pass
+        
+        # Series LC tank resonance: f0 = 1 / (2*pi*sqrt(L*C))
+        # Choose standard L = 100 nH -> compute C
+        omega0 = 2.0 * math.pi * f0 * 1e9
+        l_h = 100e-9
+        c_f = 1.0 / (omega0**2 * l_h)
+        c_pf = round(c_f * 1e12, 1)
+
+        f0_mhz_str = f"{f0 * 1000.0:.0f}" if f0 < 1.0 else f"{f0:.2f}GHz"
+
+        return CircuitSpec(
+            name=f"bpf_{f0_mhz_str.lower().replace('.', '_')}_lc",
+            title=f"{f0_mhz_str} LC Tank Bandpass Filter ({z0:.0f}Ω)",
+            topology="bandpass",
+            description=f"Series LC tank bandpass filter centered at {f0_mhz_str} (L={100}nH, C={c_pf}pF) with 50-ohm CPWG I/O matching.",
+            f_min_ghz=round(max(0.01, f0 * 0.1), 3),
+            f_0_ghz=f0,
+            f_max_ghz=round(f0 * 2.0, 3),
+            z0_ohm=z0,
+            target_s21_db=-0.5,
+            target_s11_db=-20.0,
+            width_mm=max(width_mm, 35.0),
+            height_mm=height_mm,
+            substrate_name=substrate_name,
+            dielectric_er=er,
+            substrate_height_mm=h_mm,
+            em_sim_type=em_sim_type,
+            components={
+                "C1": {"type": "capacitor", "value": f"{c_pf}pF", "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "role": "Series Tank Capacitor"},
+                "L1": {"type": "inductor", "value": "100nH", "nominal_val": 100e-9, "package": "Inductor_SMD:L_0805_2012Metric", "role": "Series Tank Inductor"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Input"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Output"},
+            }
+        )
+
+    # 4. Bias Tee Detection
     if "bias" in desc_lower or "tee" in desc_lower:
         return CircuitSpec(
             name="bias_tee",

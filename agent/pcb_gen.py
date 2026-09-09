@@ -39,10 +39,12 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     net_gnd = pcbnew.NETINFO_ITEM(board, "GND")
     net_in = pcbnew.NETINFO_ITEM(board, "RF_IN")
     net_out = pcbnew.NETINFO_ITEM(board, "RF_OUT")
+    net_mid = pcbnew.NETINFO_ITEM(board, "NET_MID")
     
     board.Add(net_gnd)
     board.Add(net_in)
     board.Add(net_out)
+    board.Add(net_mid)
 
     # 2. Board Perimeter (Edge.Cuts) with rounded corners
     W, H = spec.width_mm, spec.height_mm
@@ -118,11 +120,10 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     j2.SetPosition(pcbnew.VECTOR2I(mm(W - 4.5), mm(y_rf)))
     board.Add(j2)
 
-    # Component refs & types
-    c_keys = list(spec.components.keys())
-    ref1 = c_keys[0] if len(c_keys) > 0 else "R1"
-    ref2 = c_keys[1] if len(c_keys) > 1 else "R2"
-    ref3 = c_keys[2] if len(c_keys) > 2 else "R3"
+    # Component refs & types - filter out connectors and mounting holes
+    c_keys = [k for k in spec.components.keys() if not k.startswith("J") and not k.startswith("H")]
+    if not c_keys:
+        c_keys = ["R1", "R2", "R3"]
 
     def get_fp_for_comp(ref):
         comp = spec.components.get(ref, {})
@@ -133,33 +134,6 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
             return load_fp("Inductor_SMD", "L_0805_2012Metric"), comp.get("value", "100nH")
         else:
             return load_fp("Resistor_SMD", "R_0805_2012Metric"), comp.get("value", "50R")
-
-    # Shunt component 1 at x = 10.5
-    # Oriented 270 deg: Pad 1 at y = y_rf (on RF path), Pad 2 at y = y_rf + 1.825 (GND)
-    fp1, val1 = get_fp_for_comp(ref1)
-    fp1.SetReference(ref1)
-    fp1.SetValue(val1)
-    fp1.SetPosition(pcbnew.VECTOR2I(mm(10.5), mm(y_rf + 0.9125)))
-    fp1.SetOrientationDegrees(270.0)
-    board.Add(fp1)
-
-    # Series component 2 at x = W/2.0
-    # Oriented 0 deg: Pad 1 at (W/2 - 0.9125, y_rf), Pad 2 at (W/2 + 0.9125, y_rf)
-    fp2, val2 = get_fp_for_comp(ref2)
-    fp2.SetReference(ref2)
-    fp2.SetValue(val2)
-    fp2.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0), mm(y_rf)))
-    fp2.SetOrientationDegrees(0.0)
-    board.Add(fp2)
-
-    # Shunt component 3 at x = W - 10.5
-    # Oriented 270 deg: Pad 1 at y = y_rf (on RF path), Pad 2 at y = y_rf + 1.825 (GND)
-    fp3, val3 = get_fp_for_comp(ref3)
-    fp3.SetReference(ref3)
-    fp3.SetValue(val3)
-    fp3.SetPosition(pcbnew.VECTOR2I(mm(W - 10.5), mm(y_rf + 0.9125)))
-    fp3.SetOrientationDegrees(270.0)
-    board.Add(fp3)
 
     # M2 Mounting Holes
     try:
@@ -177,7 +151,7 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     except Exception:
         pass
 
-    # 5. Assign Nets to Pads
+    # 5. Assign Nets to Pads & 6. Route Controlled Impedance Traces
     def assign_pad(fp, pad_num, net):
         pad = fp.FindPadByNumber(pad_num)
         if pad:
@@ -191,19 +165,6 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     assign_pad(j2, "1", net_out)
     assign_pad(j2, "2", net_gnd)
 
-    # Component 1 (Shunt In): Pin 1 = RF_IN, Pin 2 = GND
-    assign_pad(fp1, "1", net_in)
-    assign_pad(fp1, "2", net_gnd)
-
-    # Component 2 (Series): Pin 1 = RF_IN, Pin 2 = RF_OUT
-    assign_pad(fp2, "1", net_in)
-    assign_pad(fp2, "2", net_out)
-
-    # Component 3 (Shunt Out): Pin 1 = RF_OUT, Pin 2 = GND
-    assign_pad(fp3, "1", net_out)
-    assign_pad(fp3, "2", net_gnd)
-
-    # 6. Route Controlled Impedance RF Traces (CPWG / Microstrip)
     rf_w_mm = spec.rf_trace_width_mm
 
     def route_track(x1, y1, x2, y2, net, width_mm):
@@ -215,44 +176,6 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         t.SetNet(net)
         board.Add(t)
 
-    # Get exact pad positions for millimeter-perfect snapping
-    p_j1_1 = j1.FindPadByNumber("1").GetPosition()
-    p_j1_2 = j1.FindPadByNumber("2").GetPosition()
-    p_j2_1 = j2.FindPadByNumber("1").GetPosition()
-    p_j2_2 = j2.FindPadByNumber("2").GetPosition()
-
-    p_c1_1 = fp1.FindPadByNumber("1").GetPosition()
-    p_c1_2 = fp1.FindPadByNumber("2").GetPosition()
-    p_c2_1 = fp2.FindPadByNumber("1").GetPosition()
-    p_c2_2 = fp2.FindPadByNumber("2").GetPosition()
-    p_c3_1 = fp3.FindPadByNumber("1").GetPosition()
-    p_c3_2 = fp3.FindPadByNumber("2").GetPosition()
-
-    x_j1, y_j1 = p_j1_1.x / 1e6, p_j1_1.y / 1e6
-    x_c1_1, y_c1_1 = p_c1_1.x / 1e6, p_c1_1.y / 1e6
-    x_c2_1, y_c2_1 = p_c2_1.x / 1e6, p_c2_1.y / 1e6
-    x_c2_2, y_c2_2 = p_c2_2.x / 1e6, p_c2_2.y / 1e6
-    x_c3_1, y_c3_1 = p_c3_1.x / 1e6, p_c3_1.y / 1e6
-    x_j2, y_j2 = p_j2_1.x / 1e6, p_j2_1.y / 1e6
-
-    # Collinear RF Path Routing along y = y_rf with pad taper transitions
-    # 1. J1 Pin 1 to Component 1 Pad 1
-    route_track(x_j1, y_j1, x_c1_1, y_c1_1, net_in, rf_w_mm)
-
-    # 2. Component 1 Pad 1 to Series Component 2 Pad 1 (with smooth pad transition)
-    x_taper_in = x_c2_1 - 0.7
-    route_track(x_c1_1, y_c1_1, x_taper_in, y_c2_1, net_in, rf_w_mm)
-    route_track(x_taper_in, y_c2_1, x_c2_1, y_c2_1, net_in, 0.8)
-
-    # 3. Series Component 2 Pad 2 to Component 3 Pad 1 (with smooth pad transition)
-    x_taper_out = x_c2_2 + 0.7
-    route_track(x_c2_2, y_c2_2, x_taper_out, y_c2_2, net_out, 0.8)
-    route_track(x_taper_out, y_c2_2, x_c3_1, y_c3_1, net_out, rf_w_mm)
-
-    # 4. Component 3 Pad 1 to J2 Pin 1
-    route_track(x_c3_1, y_c3_1, x_j2, y_j2, net_out, rf_w_mm)
-
-    # 7. Ground Connections & Via Stitching
     def add_via(x_mm, y_mm):
         v = pcbnew.PCB_VIA(board)
         v.SetPosition(pcbnew.VECTOR2I(mm(x_mm), mm(y_mm)))
@@ -261,14 +184,134 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         v.SetNet(net_gnd)
         board.Add(v)
 
-    # Direct ground vias for shunt components
-    x_c1_2, y_c1_2 = p_c1_2.x / 1e6, p_c1_2.y / 1e6
-    route_track(x_c1_2, y_c1_2, x_c1_2, y_c1_2 + 1.2, net_gnd, 0.8)
-    add_via(x_c1_2, y_c1_2 + 1.2)
+    p_j1_1 = j1.FindPadByNumber("1").GetPosition()
+    p_j1_2 = j1.FindPadByNumber("2").GetPosition()
+    p_j2_1 = j2.FindPadByNumber("1").GetPosition()
+    p_j2_2 = j2.FindPadByNumber("2").GetPosition()
 
-    x_c3_2, y_c3_2 = p_c3_2.x / 1e6, p_c3_2.y / 1e6
-    route_track(x_c3_2, y_c3_2, x_c3_2, y_c3_2 + 1.2, net_gnd, 0.8)
-    add_via(x_c3_2, y_c3_2 + 1.2)
+    x_j1, y_j1 = p_j1_1.x / 1e6, p_j1_1.y / 1e6
+    x_j2, y_j2 = p_j2_1.x / 1e6, p_j2_1.y / 1e6
+
+    # J1 & J2 GND pin vias
+    x_j1_2, y_j1_2 = p_j1_2.x / 1e6, p_j1_2.y / 1e6
+    route_track(x_j1_2, y_j1_2, x_j1_2, y_j1_2 + 1.2, net_gnd, 0.8)
+    add_via(x_j1_2, y_j1_2 + 1.2)
+
+    x_j2_2, y_j2_2 = p_j2_2.x / 1e6, p_j2_2.y / 1e6
+    route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
+    add_via(x_j2_2, y_j2_2 + 1.2)
+
+    if len(c_keys) == 2:
+        # Two series resonant elements (e.g. series LC tank bandpass filter)
+        ref1, ref2 = c_keys[0], c_keys[1]
+        fp1, val1 = get_fp_for_comp(ref1)
+        fp1.SetReference(ref1)
+        fp1.SetValue(val1)
+        fp1.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0 - 3.5), mm(y_rf)))
+        fp1.SetOrientationDegrees(0.0)
+        board.Add(fp1)
+
+        fp2, val2 = get_fp_for_comp(ref2)
+        fp2.SetReference(ref2)
+        fp2.SetValue(val2)
+        fp2.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0 + 3.5), mm(y_rf)))
+        fp2.SetOrientationDegrees(0.0)
+        board.Add(fp2)
+
+        assign_pad(fp1, "1", net_in)
+        assign_pad(fp1, "2", net_mid)
+        assign_pad(fp2, "1", net_mid)
+        assign_pad(fp2, "2", net_out)
+
+        p_c1_1 = fp1.FindPadByNumber("1").GetPosition()
+        p_c1_2 = fp1.FindPadByNumber("2").GetPosition()
+        p_c2_1 = fp2.FindPadByNumber("1").GetPosition()
+        p_c2_2 = fp2.FindPadByNumber("2").GetPosition()
+
+        x_c1_1 = p_c1_1.x / 1e6
+        x_c1_2 = p_c1_2.x / 1e6
+        x_c2_1 = p_c2_1.x / 1e6
+        x_c2_2 = p_c2_2.x / 1e6
+
+        # 1. J1 to FP1 Pad 1
+        x_taper_in = x_c1_1 - 0.7
+        route_track(x_j1, y_j1, x_taper_in, y_j1, net_in, rf_w_mm)
+        route_track(x_taper_in, y_j1, x_c1_1, y_j1, net_in, 0.8)
+
+        # 2. FP1 Pad 2 to FP2 Pad 1 (Series connection)
+        route_track(x_c1_2, y_j1, x_c2_1, y_j1, net_mid, 0.8)
+
+        # 3. FP2 Pad 2 to J2
+        x_taper_out = x_c2_2 + 0.7
+        route_track(x_c2_2, y_j2, x_taper_out, y_j2, net_out, 0.8)
+        route_track(x_taper_out, y_j2, x_j2, y_j2, net_out, rf_w_mm)
+
+    else:
+        # Standard 3-element Pi network (attenuator, lowpass filter, etc.)
+        ref1 = c_keys[0] if len(c_keys) > 0 else "R1"
+        ref2 = c_keys[1] if len(c_keys) > 1 else "R2"
+        ref3 = c_keys[2] if len(c_keys) > 2 else "R3"
+
+        fp1, val1 = get_fp_for_comp(ref1)
+        fp1.SetReference(ref1)
+        fp1.SetValue(val1)
+        fp1.SetPosition(pcbnew.VECTOR2I(mm(10.5), mm(y_rf + 0.9125)))
+        fp1.SetOrientationDegrees(270.0)
+        board.Add(fp1)
+
+        fp2, val2 = get_fp_for_comp(ref2)
+        fp2.SetReference(ref2)
+        fp2.SetValue(val2)
+        fp2.SetPosition(pcbnew.VECTOR2I(mm(W / 2.0), mm(y_rf)))
+        fp2.SetOrientationDegrees(0.0)
+        board.Add(fp2)
+
+        fp3, val3 = get_fp_for_comp(ref3)
+        fp3.SetReference(ref3)
+        fp3.SetValue(val3)
+        fp3.SetPosition(pcbnew.VECTOR2I(mm(W - 10.5), mm(y_rf + 0.9125)))
+        fp3.SetOrientationDegrees(270.0)
+        board.Add(fp3)
+
+        assign_pad(fp1, "1", net_in)
+        assign_pad(fp1, "2", net_gnd)
+        assign_pad(fp2, "1", net_in)
+        assign_pad(fp2, "2", net_out)
+        assign_pad(fp3, "1", net_out)
+        assign_pad(fp3, "2", net_gnd)
+
+        p_c1_1 = fp1.FindPadByNumber("1").GetPosition()
+        p_c1_2 = fp1.FindPadByNumber("2").GetPosition()
+        p_c2_1 = fp2.FindPadByNumber("1").GetPosition()
+        p_c2_2 = fp2.FindPadByNumber("2").GetPosition()
+        p_c3_1 = fp3.FindPadByNumber("1").GetPosition()
+        p_c3_2 = fp3.FindPadByNumber("2").GetPosition()
+
+        x_c1_1, y_c1_1 = p_c1_1.x / 1e6, p_c1_1.y / 1e6
+        x_c2_1, y_c2_1 = p_c2_1.x / 1e6, p_c2_1.y / 1e6
+        x_c2_2, y_c2_2 = p_c2_2.x / 1e6, p_c2_2.y / 1e6
+        x_c3_1, y_c3_1 = p_c3_1.x / 1e6, p_c3_1.y / 1e6
+
+        route_track(x_j1, y_j1, x_c1_1, y_c1_1, net_in, rf_w_mm)
+
+        x_taper_in = x_c2_1 - 0.7
+        route_track(x_c1_1, y_c1_1, x_taper_in, y_c2_1, net_in, rf_w_mm)
+        route_track(x_taper_in, y_c2_1, x_c2_1, y_c2_1, net_in, 0.8)
+
+        x_taper_out = x_c2_2 + 0.7
+        route_track(x_c2_2, y_c2_2, x_taper_out, y_c2_2, net_out, 0.8)
+        route_track(x_taper_out, y_c2_2, x_c3_1, y_c3_1, net_out, rf_w_mm)
+
+        route_track(x_c3_1, y_c3_1, x_j2, y_j2, net_out, rf_w_mm)
+
+        # Ground vias for shunt components
+        x_c1_2, y_c1_2 = p_c1_2.x / 1e6, p_c1_2.y / 1e6
+        route_track(x_c1_2, y_c1_2, x_c1_2, y_c1_2 + 1.2, net_gnd, 0.8)
+        add_via(x_c1_2, y_c1_2 + 1.2)
+
+        x_c3_2, y_c3_2 = p_c3_2.x / 1e6, p_c3_2.y / 1e6
+        route_track(x_c3_2, y_c3_2, x_c3_2, y_c3_2 + 1.2, net_gnd, 0.8)
+        add_via(x_c3_2, y_c3_2 + 1.2)
 
     # J1 & J2 GND pin vias
     x_j1_2, y_j1_2 = p_j1_2.x / 1e6, p_j1_2.y / 1e6
