@@ -22,7 +22,12 @@ description: >-
 >   - **Default**: **0603** footprint packages (`Inductor_SMD:L_0603_1608Metric`) from **Coilcraft** (0603CS / 0603HP wirewound) or **Murata** (LQW18AN / LQG18H).
 >   - **Fallback**: If specific values are not available from these vendors in 0603 (> 470 nH up to 2.2 µH), fall back to **0805** (`Inductor_SMD:L_0805_2012Metric`), or **1206** (`Inductor_SMD:L_1206_3216Metric`) for > 2.2 µH.
 >   - **Constraint**: **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
-> * **Resistors & Capacitors**: Standard **0805 Imperial / 2012 Metric** footprint packages with $45^\circ$ neckdown tapers ($1.87\text{ mm} \rightarrow 0.80\text{ mm}$).
+> * **1-Port Circuits (Input-Only Circuits — Loads, Terminations, Standards)**:
+>   - **Single Port Only (`num_ports = 1`, `J1` / `SMA_IN`)**: When the user asks for a circuit where only the input side exists (e.g. "50 ohm Load circuit for calibration", "50 ohm termination", "SOLT calibration load/short/open"):
+>     - Place **ONLY** the input connector `J1` on the left edge. **NEVER place an output connector `J2`** or route an output line.
+>     - **NEVER replicate the circuit on the output side**: The input trace terminates directly into the shunt load (e.g. $R_1 \parallel R_2 = 50.0\,\Omega$). Do NOT duplicate components (e.g., no R3/R4).
+>     - **Compact Board**: Use a compact form factor ($20.0\text{ mm} \times 16.0\text{ mm}$) with solid ground pour and via stitching across the unused area.
+>     - **1-Port Metrics**: Evaluate Return Loss ($S_{11}$) and VSWR. Do NOT compute, plot, or report $S_{21}$ / $S_{22}$.
 
 ## Immediate Execution Policy (Zero Codebase Browsing Rule)
 > [!CRITICAL]
@@ -36,29 +41,23 @@ description: >-
 >    ```
 >    The `agent.workflow` engine automatically parses the description, generates the mathematical circuit specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
 
-## Native Chat Handover & Render Protocol (100% Reliable Render Display)
+## Interactive Popup Review Protocol (`ask_question`)
 > [!IMPORTANT]
-> **DO NOT USE `ask_question` FOR STAGE REVIEWS**:
-> Invoking the modal tool `ask_question` suppresses chat text and causes image renders to fail to display in the chat window. Always provide the stage review directly as visible chat text and end your turn without calling tools.
-
-When executing an RF design project, **never execute stages in a silent uninterrupted batch unless explicitly requested**.
-Immediately upon completing **each task**, you must:
-1. **Copy Render(s) to Artifact Directory**:
-   Copy all visual outputs (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.) from `d:\Workspace\rf\rf-workbench\projects\<name>\renders\` (or `charts\`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item`.
-2. **Single Native Markdown Image Display**:
-   Embed each image ONCE using standard Markdown image syntax directly in the chat response:
-   ```markdown
-   ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
-   ```
-   *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
-   - Do NOT generate HTML review files (`review_renders.html`) or `<agent-embed>` iframe tags.
-3. **Show Deliverables Table**: Display the relative paths, file sizes, and status of generated files.
-4. **Engineering Integrity Check**: Verify DRC violations (0 errors, 0 warnings) and electrical specifications.
-5. **Numbered Review Choices in Chat**: Provide context-specific review options tailored to the active stage:
-   - `1. (Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
-   - `2. I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
-   - `3. Pause execution here so I can review the deliverables and think through next steps.`
-6. **End Turn**: Stop calling tools. Prompt the user: *"Reply with **1** (or 'proceed') to continue to <Next Task>, or specify adjustments."*
+> **MANDATORY POPUP CONFIRMATION WITH NATIVE IMAGE DISPLAY**:
+> User interaction between stages MUST be presented as **interactive popup modals** using `ask_question`.
+> To guarantee that the schematic and 3D renders are always 100% visible in the chat alongside the popup:
+> 1. **Never emit an empty message body**: When calling `ask_question`, you MUST provide the full visible chat message containing the embedded image, deliverables table, and engineering verification.
+> 2. **Single Native Markdown Image Display**: Embed each image ONCE using standard Markdown syntax directly in the chat message:
+>    ```markdown
+>    ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
+>    ```
+>    *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
+> 3. **Copy to Artifacts Directory**: Always copy generated `.png` assets from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item` before embedding.
+> 4. **Display Deliverables Table & DRC Check**: List file paths, sizes, and 0 DRC violations.
+> 5. **Invoke `ask_question` in the SAME Turn**: Trigger the popup modal with context-specific options:
+>    - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
+>    - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+>    - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
 
 If the user requests reiteration, update `projects/<name>/spec.json` and re-run the specific stage using `--stages <stage>`.
 

@@ -44,6 +44,12 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 > * **SMD Passives & Inductor Sourcing**:
 >   - **Inductor Sourcing Hierarchy**: Default to **0603** footprint packages (`Inductor_SMD:L_0603_1608Metric`) from **Coilcraft** (0603CS / 0603HP wirewound) or **Murata** (LQW18AN / LQG18H). If specific values are not available from these vendors in 0603 (> 470 nH up to 2.2 µH), fall back to **0805** (`Inductor_SMD:L_0805_2012Metric`), or **1206** (`Inductor_SMD:L_1206_3216Metric`) for > 2.2 µH. **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
 >   - **Resistors & Capacitors**: Standard **0805 Imperial / 2012 Metric** footprint packages with $45^\circ$ neckdown tapers ($1.87\text{ mm} \rightarrow 0.80\text{ mm}$).
+> * **1-Port Circuits (Input-Only Circuits — Loads, Terminations, Standards)**:
+>   - **Single Port Only (`num_ports = 1`, `J1` / `SMA_IN`)**: When the user requests a circuit where only the input side exists (e.g. "50 ohm Load circuit for calibration", "50 ohm termination", "SOLT calibration load/short/open"):
+>     - Place **ONLY** the input connector `J1` on the left edge. **NEVER place an output connector `J2`** or route an output line.
+>     - **NEVER replicate the circuit on the output side**: The input CPWG trace terminates directly into the shunt load (e.g. $R_1 \parallel R_2 = 50.0\,\Omega$ to ground). Do NOT create symmetrical output passives (no R3/R4).
+>     - **Compact Board**: Use a compact form factor ($20.0\text{ mm} \times 16.0\text{ mm}$) with solid ground pour and perimeter via stitching filling the remaining board area.
+>     - **1-Port Metrics**: Characterize Return Loss ($S_{11}$) and VSWR. Do NOT compute, plot, or report $S_{21}$ or $S_{22}$.
 > * **Shielding**: Continuous ground via fencing rows ($0.4\text{ mm}$ drill, $0.8\text{ mm}$ pad) and perimeter stitching.
 
 ---
@@ -180,32 +186,27 @@ As an autonomous agent, you must ensure:
 
 ---
 
-## 6. Human-in-the-Loop Stage Review Protocol & Native Chat Visualization
+## 6. Human-in-the-Loop Stage Review Protocol & Interactive Popup Modals
 
-To maintain total transparency, stability, and engineering rigor, the agent follows a strict **Native Chat Visualization & Stage Review Protocol**:
+To maintain total transparency, stability, and engineering rigor, the agent follows a strict **Interactive Popup Modal Review Protocol** (`ask_question`):
 
-### Mandatory Rules: Native Chat Handover (100% Reliable Render Display)
+### Mandatory Rules: Interactive Modal Popups with Native Image Display
 > [!IMPORTANT]
-> **DO NOT USE `ask_question` FOR STAGE REVIEWS**:
-> Invoking modal tools like `ask_question` frequently suppresses the agent's message text and pops up a blocking modal dialog over the chat, hiding the schematic/render from the user. Always output the review directly into visible chat text and end your turn without calling tools.
-
-1. **Copy Render(s) to Artifact Directory**:
-   Immediately upon completing any stage that produces visual assets (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `bottom_render.png`, `sparam_plot.png`, `smith_chart.png`, etc.):
-   - Copy the `.png` files from `d:\Workspace\rf\rf-workbench\projects\<name>\renders\` (or `charts\`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item`.
-2. **Single Native Markdown Image Display**:
-   - Embed each image ONCE using standard Markdown syntax directly in the visible chat response:
-     ```markdown
-     ![Zoomed Schematic](file:///<artifact_path>/schematic_zoomed.png)
-     ```
-     *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
-   - **No Redundant HTML Iframe Embeds**: Do NOT generate temporary review HTML files (`review_renders.html`) or `<agent-embed>` tags. Native Markdown image tags render cleanly, borderless, and at full resolution directly in the chat timeline without duplicate display or iframe scrollbars.
-3. **Show Deliverables Table**: Itemize output files with relative paths, sizes (KB), and status.
-4. **Engineering Integrity Check**: Confirm DRC violations (0 errors, 0 warnings), CPWG impedance ($Z_0 = 50.0\,\Omega$), and electrical specifications.
-5. **Numbered Review Choices in Visible Text**: Provide context-specific review options tailored to the active stage:
-   - `1. (Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
-   - `2. I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
-   - `3. Pause execution here so I can review the deliverables and think through next steps.`
-6. **End Turn Cleanly**: Stop calling tools after outputting the review. The user will see the render and can reply directly with `1`, `proceed`, or any adjustments.
+> **MANDATORY POPUP CONFIRMATION VIA `ask_question`**:
+> User review confirmations between stages MUST be triggered as **interactive popup modals** using `ask_question`.
+> To guarantee that visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.) are always 100% visible in the chat alongside the popup dialog:
+> 1. **Never emit an empty message body**: When calling `ask_question`, you MUST write out the full visible chat message containing the embedded image, deliverables table, and engineering verification.
+> 2. **Single Native Markdown Image Display**: Embed each image ONCE using standard Markdown syntax directly in the chat response:
+>    ```markdown
+>    ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
+>    ```
+>    *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
+> 3. **Copy to Artifacts Directory**: Always copy generated `.png` assets from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item` before embedding.
+> 4. **Display Deliverables Table & DRC Check**: List file paths, sizes (KB), and 0 DRC violations.
+> 5. **Invoke `ask_question` in the SAME Turn**: Provide the 3 selectable options in the modal dialog:
+>    - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
+>    - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+>    - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
 
 ### Stage-by-Stage Review & Context-Aware Prompt Mapping
 

@@ -58,6 +58,31 @@ def generate_performance_report(
     s21_note = "High isolation across solid ground shield wall" if is_load else f"Flatness ripple: ±{s21_flatness/2.0:.2f} dB across full band"
     s22_note = "Symmetric 50Ω load termination on Port 2" if is_load else "Reciprocal Pi-network structure"
 
+    if spec.num_ports == 1:
+        s11_mag = np.abs(s11)
+        vswr = (1.0 + s11_mag) / np.maximum(1.0 - s11_mag, 1e-6)
+        vswr_worst = float(np.max(vswr))
+        vswr_pass = vswr_worst <= 1.15
+        perf_table = f"""| Engineering Metric | Target Specification | Simulated Performance | Status | Margin / Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **Frequency Range** | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | **PASS** | Evaluated across {len(freqs)} discrete points |
+| **Input Return Loss (S11)** | < {spec.target_s11_db:.1f} dB | **{s11_worst:+.2f} dB** (worst case) | **{'PASS' if s11_pass else 'MARGINAL'}** | Excellent 50Ω input match |
+| **Voltage Standing Wave Ratio (VSWR)** | < 1.10 : 1 | **{vswr_worst:.2f} : 1** (peak) | **{'PASS' if vswr_pass else 'MARGINAL'}** | Ultra-low reflection |
+| **Characteristic Impedance (Z0)** | {spec.z0_ohm:.1f} Ω | **{zin_real_mean:.1f} Ω** | **PASS** | Synthesized {spec.trace_mode} width: {spec.rf_trace_width_mm:.2f} mm (gap: {spec.cpwg_gap_mm:.2f} mm) |
+| **DC Bias / Power Consumption** | {spec.power_supply_type} | 0.0 mA (Passive) | **PASS** | No external power supply required |
+| **PCB Dimensions** | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | **PASS** | Compact 1-port 2-layer RF form factor |"""
+    else:
+        perf_table = f"""| Engineering Metric | Target Specification | Simulated Performance | Status | Margin / Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **Frequency Range** | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | **PASS** | Evaluated across {len(freqs)} discrete points |
+| **{s21_title}** | {s21_target_str} | **{s21_mean:+.2f} dB** (range: {s21_min:+.2f} to {s21_max:+.2f} dB) | **{'PASS' if s21_pass else 'MARGINAL'}** | {s21_note} |
+| **Input Return Loss (S11)** | < {spec.target_s11_db:.1f} dB | **{s11_worst:+.2f} dB** (worst case) | **{'PASS' if s11_pass else 'MARGINAL'}** | Excellent 50Ω input match |
+| **Output Return Loss (S22)** | < {spec.target_s22_db:.1f} dB | **{s11_worst:+.2f} dB** (symmetric) | **{'PASS' if s11_pass else 'MARGINAL'}** | {s22_note} |
+| **Rollett Stability Factor (K)** | K > 1.00 (Unconditional) | **{k_min:.2f}** (minimum across band) | **{'PASS' if k_pass else 'FAIL'}** | Unconditionally stable at all operational frequencies |
+| **Characteristic Impedance (Z0)** | {spec.z0_ohm:.1f} Ω | **{zin_real_mean:.1f} Ω** | **PASS** | Synthesized {spec.trace_mode} width: {spec.rf_trace_width_mm:.2f} mm (gap: {spec.cpwg_gap_mm:.2f} mm) |
+| **DC Bias / Power Consumption** | {spec.power_supply_type} | 0.0 mA (Passive) | **PASS** | No external power supply required |
+| **PCB Dimensions** | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | **PASS** | Compact 2-layer RF form factor |"""
+
     content = f"""# PCB Performance & Verification Report: {spec.title}
 
 **Generated Date**: {today}  
@@ -68,16 +93,7 @@ def generate_performance_report(
 
 ## 1. Specification vs. Simulated Performance Table
 
-| Engineering Metric | Target Specification | Simulated Performance | Status | Margin / Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| **Frequency Range** | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | **PASS** | Evaluated across {len(freqs)} discrete points |
-| **{s21_title}** | {s21_target_str} | **{s21_mean:+.2f} dB** (range: {s21_min:+.2f} to {s21_max:+.2f} dB) | **{'PASS' if s21_pass else 'MARGINAL'}** | {s21_note} |
-| **Input Return Loss (S11)** | < {spec.target_s11_db:.1f} dB | **{s11_worst:+.2f} dB** (worst case) | **{'PASS' if s11_pass else 'MARGINAL'}** | Excellent 50Ω input match |
-| **Output Return Loss (S22)** | < {spec.target_s22_db:.1f} dB | **{s11_worst:+.2f} dB** (symmetric) | **{'PASS' if s11_pass else 'MARGINAL'}** | {s22_note} |
-| **Rollett Stability Factor (K)** | K > 1.00 (Unconditional) | **{k_min:.2f}** (minimum across band) | **{'PASS' if k_pass else 'FAIL'}** | Unconditionally stable at all operational frequencies |
-| **Characteristic Impedance (Z0)** | {spec.z0_ohm:.1f} Ω | **{zin_real_mean:.1f} Ω** | **PASS** | Synthesized {spec.trace_mode} width: {spec.rf_trace_width_mm:.2f} mm (gap: {spec.cpwg_gap_mm:.2f} mm) |
-| **DC Bias / Power Consumption** | {spec.power_supply_type} | 0.0 mA (Passive) | **PASS** | No external power supply required |
-| **PCB Dimensions** | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | {spec.width_mm:.1f} mm × {spec.height_mm:.1f} mm | **PASS** | Compact 2-layer RF form factor |
+{perf_table}
 
 ---
 

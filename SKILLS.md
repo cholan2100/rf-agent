@@ -33,10 +33,14 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 * $\varepsilon_{eff} = \mathbf{2.88}$
 * $v_p = 1.767 \times 10^8\text{ m/s}$, $t_{pd} = 5.66\text{ ps/mm}$
 
-> [!IMPORTANT]
-> **Default Hardware & Component Sourcing Baseline**:
-> * **PCB Stackup**: Whenever the user does not specify PCB physical properties, ALWAYS assume standard **2-layer FR4, 1.60 mm board thickness, 1 oz copper, 50Ω CPWG, and SMA connectors** for all RF ports.
-> * **Inductor Sourcing**: Default to **0603** footprint packages from **Coilcraft** (0603CS/0603HP wirewound) or **Murata** (LQW18AN/LQG18H). If specific values are not available from these vendors in 0603 (> 470 nH up to 2.2 µH), fall back to **0805** (`Inductor_SMD:L_0805_2012Metric`), or **1206** (`Inductor_SMD:L_1206_3216Metric`) for > 2.2 µH. **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
+> * **Default Hardware & Component Sourcing Baseline**:
+>   - **PCB Stackup**: Whenever the user does not specify PCB physical properties, ALWAYS assume standard **2-layer FR4, 1.60 mm board thickness, 1 oz copper, 50Ω CPWG, and SMA connectors** for all RF ports.
+>   - **Inductor Sourcing**: Default to **0603** footprint packages from **Coilcraft** (0603CS/0603HP wirewound) or **Murata** (LQW18AN/LQG18H). If specific values are not available from these vendors in 0603 (> 470 nH up to 2.2 µH), fall back to **0805** (`Inductor_SMD:L_0805_2012Metric`), or **1206** (`Inductor_SMD:L_1206_3216Metric`) for > 2.2 µH. **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
+>   - **1-Port Circuits (Input-Only Circuits — Loads, Terminations, Standards)**:
+>     - Place **ONLY** the input connector `J1` (`SMA_IN`). **NEVER place an output connector `J2`** or route an output line.
+>     - **NEVER replicate the circuit on the output side**: The input CPWG trace terminates directly into the shunt load (e.g. $R_1 \parallel R_2 = 50.0\,\Omega$ to ground). Do NOT create symmetrical output passives (no R3/R4).
+>     - **Compact Board**: Use a compact form factor ($20.0\text{ mm} \times 16.0\text{ mm}$) with solid ground pour and perimeter via stitching filling the remaining board area.
+>     - **1-Port Metrics**: Characterize Return Loss ($S_{11}$) and VSWR. Do NOT compute, plot, or report $S_{21}$ or $S_{22}$.
 
 ### 1.2 Closed-Form Passive Circuit Synthesis
 * **Symmetric Pi-Attenuators**:
@@ -182,29 +186,28 @@ Compiles `PERFORMANCE_REPORT.md` containing:
 
 ---
 
-## Skill 12: Human-in-the-Loop Stage Review Protocol & Native Chat Visualization
+## Skill 12: Human-in-the-Loop Stage Review Protocol & Interactive Popup Modals
 
-After executing each task in the workflow, the agent executes a visible chat review gate before continuing:
+After executing each task in the workflow, the agent executes an interactive popup modal review gate before continuing:
 
-### Stage Handover Protocol (100% Reliable Render Display)
+### Stage Handover Protocol (Interactive Modal Popups via `ask_question`)
 > [!IMPORTANT]
-> **DO NOT USE `ask_question` FOR STAGE REVIEWS**:
-> Invoking modal tools like `ask_question` suppresses message text and pops up an overlay that prevents the user from seeing the schematic/render. Always deliver the review directly as visible chat text and end your turn without calling tools.
-
-1. **Copy Render(s) to Artifact Directory**: Immediately upon completing any stage with visual deliverables, copy `.png` assets from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item`.
-2. **Single Native Markdown Image Display**: Embed each image ONCE using standard Markdown syntax directly in the visible chat response:
-   ```markdown
-   ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
-   ```
-   *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
-   - Do NOT generate intermediate HTML iframe cards (`review_renders.html` / `<agent-embed>`), as that duplicates images and creates unnecessary scrollbars.
-3. **Deliverables Summary**: Itemize output files with relative paths, sizes (KB), and status.
-4. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
-5. **Numbered Review Choices in Chat**: Provide context-specific review options directly in text:
-   - `1. (Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
-   - `2. I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
-   - `3. Pause execution here so I can review the deliverables and think through next steps.`
-6. **End Turn Cleanly**: Stop calling tools after outputting the review. The user will see the render and can reply directly with `1`, `proceed`, or any adjustments.
+> **MANDATORY POPUP CONFIRMATION WITH NATIVE IMAGE DISPLAY**:
+> User interaction between stages MUST be presented as **interactive popup modals** using `ask_question`.
+> To guarantee that visual renders (`schematic_zoomed.png`, `iso_render.png`, etc.) are always 100% visible in the chat alongside the popup:
+> 1. **Never emit an empty message body**: When calling `ask_question`, you MUST provide the full visible chat message containing the embedded image, deliverables table, and engineering verification.
+> 2. **Single Native Markdown Image Display**: Embed each image ONCE using standard Markdown syntax directly in the visible chat response:
+>    ```markdown
+>    ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
+>    ```
+>    *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
+> 3. **Copy to Artifacts Directory**: Always copy generated `.png` assets from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item` before embedding.
+> 4. **Deliverables Summary**: Itemize output files with relative paths, sizes (KB), and status.
+> 5. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
+> 6. **Invoke `ask_question` in the SAME Turn**: Trigger the popup modal with context-specific options:
+>    - `1. (Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
+>    - `2. I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+>    - `3. Pause execution here so I can review the deliverables and think through next steps.`
 
 ### Stage Review & Prompt Mapping Matrix
 

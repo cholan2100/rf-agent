@@ -134,16 +134,20 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         j1.SetOrientationDegrees(0.0)
     board.Add(j1)
 
-    # J2: Port 2 Connector (default: Samtec SMA EdgeMount on right PCB edge x = W)
-    j2, j2_pkg = load_connector_fp("J2", "SMA_OUT")
-    is_edge_mount_j2 = "EdgeMount" in j2_pkg or "EM1" in j2_pkg
-    if is_edge_mount_j2:
-        j2.SetPosition(pcbnew.VECTOR2I(mm(W - 2.1), mm(y_rf)))
-        j2.SetOrientationDegrees(0.0)
-    else:
-        j2.SetPosition(pcbnew.VECTOR2I(mm(W - 4.5), mm(y_rf)))
-        j2.SetOrientationDegrees(0.0)
-    board.Add(j2)
+    # J2: Port 2 Connector (only for 2+ port circuits where J2 is defined)
+    has_j2 = (spec.num_ports >= 2 and "J2" in spec.components)
+    j2 = None
+    is_edge_mount_j2 = False
+    if has_j2:
+        j2, j2_pkg = load_connector_fp("J2", "SMA_OUT")
+        is_edge_mount_j2 = "EdgeMount" in j2_pkg or "EM1" in j2_pkg
+        if is_edge_mount_j2:
+            j2.SetPosition(pcbnew.VECTOR2I(mm(W - 2.1), mm(y_rf)))
+            j2.SetOrientationDegrees(0.0)
+        else:
+            j2.SetPosition(pcbnew.VECTOR2I(mm(W - 4.5), mm(y_rf)))
+            j2.SetOrientationDegrees(0.0)
+        board.Add(j2)
 
     # Component refs & types - filter out connectors and mounting holes
     c_keys = [k for k in spec.components.keys() if not k.startswith("J") and not k.startswith("H")]
@@ -202,9 +206,10 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     assign_pad(j1, "1", net_in)
     assign_pad(j1, "2", net_gnd)
 
-    # J2: Pin 1 = RF_OUT, Pin 2 (all ground pads) = GND
-    assign_pad(j2, "1", net_out)
-    assign_pad(j2, "2", net_gnd)
+    # J2: Pin 1 = RF_OUT, Pin 2 (all ground pads) = GND (if present)
+    if has_j2 and j2 is not None:
+        assign_pad(j2, "1", net_out)
+        assign_pad(j2, "2", net_gnd)
 
     rf_w_mm = spec.rf_trace_width_mm
 
@@ -226,10 +231,13 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         board.Add(v)
 
     p_j1_1 = j1.FindPadByNumber("1").GetPosition()
-    p_j2_1 = j2.FindPadByNumber("1").GetPosition()
-
     x_j1, y_j1 = p_j1_1.x / 1e6, p_j1_1.y / 1e6
-    x_j2, y_j2 = p_j2_1.x / 1e6, p_j2_1.y / 1e6
+
+    if has_j2 and j2 is not None:
+        p_j2_1 = j2.FindPadByNumber("1").GetPosition()
+        x_j2, y_j2 = p_j2_1.x / 1e6, p_j2_1.y / 1e6
+    else:
+        x_j2, y_j2 = W - 2.1, y_rf
 
     # J1 & J2 GND return stitching vias
     if is_edge_mount_j1:
@@ -241,33 +249,36 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         route_track(x_j1_2, y_j1_2, x_j1_2, y_j1_2 + 1.2, net_gnd, 0.8)
         add_via(x_j1_2, y_j1_2 + 1.2)
 
-    if is_edge_mount_j2:
-        add_via(W - 4.3, y_rf - 2.825)
-        add_via(W - 4.3, y_rf + 2.825)
-    else:
-        p_j2_2 = j2.FindPadByNumber("2").GetPosition()
-        x_j2_2, y_j2_2 = p_j2_2.x / 1e6, p_j2_2.y / 1e6
-        route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
-        add_via(x_j2_2, y_j2_2 + 1.2)
+    if has_j2 and j2 is not None:
+        if is_edge_mount_j2:
+            add_via(W - 4.3, y_rf - 2.825)
+            add_via(W - 4.3, y_rf + 2.825)
+        else:
+            p_j2_2 = j2.FindPadByNumber("2").GetPosition()
+            x_j2_2, y_j2_2 = p_j2_2.x / 1e6, p_j2_2.y / 1e6
+            route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
+            add_via(x_j2_2, y_j2_2 + 1.2)
 
     if spec.topology in ["calibration_load", "load"]:
-        # Dual 50-Ohm Calibration Load Standard (Port 1 and Port 2 independent terminated lines)
+        # 1-Port Precision 50-Ohm Calibration Load Standard (J1 Input only)
         x_term1_a = 8.5
         x_term1_b = 11.0
-        x_term2_a = W - 8.5
-        x_term2_b = W - 11.0
 
-        # R1 (Port 1 upper shunt: 100R to GND)
+        # R1 (Upper shunt: 100R to GND)
         fp1, val1 = get_fp_for_comp("R1")
         fp1.SetReference("R1")
         fp1.SetValue(val1)
+        fp1.Reference().SetVisible(False)
+        fp1.Value().SetVisible(False)
         place_shunt_fp(fp1, x_term1_a, y_rf)
         board.Add(fp1)
 
-        # R2 (Port 1 lower shunt: 100R to GND)
+        # R2 (Lower shunt: 100R to GND)
         fp2, val2 = get_fp_for_comp("R2")
         fp2.SetReference("R2")
         fp2.SetValue(val2)
+        fp2.Reference().SetVisible(False)
+        fp2.Value().SetVisible(False)
         fp2.SetOrientationDegrees(90.0)
         fp2.SetPosition(pcbnew.VECTOR2I(0, 0))
         p2_1 = fp2.FindPadByNumber("1")
@@ -275,59 +286,32 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         fp2.SetPosition(pcbnew.VECTOR2I(mm(x_term1_b), mm(y_rf - off_y2)))
         board.Add(fp2)
 
-        # R3 (Port 2 upper shunt: 100R to GND)
-        fp3, val3 = get_fp_for_comp("R3")
-        fp3.SetReference("R3")
-        fp3.SetValue(val3)
-        place_shunt_fp(fp3, x_term2_a, y_rf)
-        board.Add(fp3)
-
-        # R4 (Port 2 lower shunt: 100R to GND)
-        fp4, val4 = get_fp_for_comp("R4")
-        fp4.SetReference("R4")
-        fp4.SetValue(val4)
-        fp4.SetOrientationDegrees(90.0)
-        fp4.SetPosition(pcbnew.VECTOR2I(0, 0))
-        p4_1 = fp4.FindPadByNumber("1")
-        off_y4 = (p4_1.GetPosition().y / 1e6) if p4_1 else -0.9125
-        fp4.SetPosition(pcbnew.VECTOR2I(mm(x_term2_b), mm(y_rf - off_y4)))
-        board.Add(fp4)
-
-        # Pad Nets
+        # Pad Nets: Pad 1 connected to RF trace, Pad 2 connected to GND
         assign_pad(fp1, "1", net_in)
         assign_pad(fp1, "2", net_gnd)
         assign_pad(fp2, "1", net_in)
         assign_pad(fp2, "2", net_gnd)
 
-        assign_pad(fp3, "1", net_out)
-        assign_pad(fp3, "2", net_gnd)
-        assign_pad(fp4, "1", net_out)
-        assign_pad(fp4, "2", net_gnd)
-
-        # Route CPWG RF transmission lines
+        # Route CPWG RF transmission line from J1 to termination
         route_track(x_j1, y_j1, x_term1_b, y_rf, net_in, rf_w_mm)
-        route_track(x_j2, y_j2, x_term2_b, y_rf, net_out, rf_w_mm)
 
         # Ground return vias for shunt resistors (routed outwards away from RF line)
-        for fp in [fp1, fp2, fp3, fp4]:
+        for fp in [fp1, fp2]:
             p2 = fp.FindPadByNumber("2").GetPosition()
             x2, y2 = p2.x / 1e6, p2.y / 1e6
             dy = 1.2 if y2 > y_rf else -1.2
             route_track(x2, y2, x2, y2 + dy, net_gnd, 0.8)
             add_via(x2, y2 + dy)
 
-        # CPWG Ground Fencing along Port 1 and Port 2 (clear of shunt ground vias)
+        # CPWG Ground Fencing along Port 1
         for vx in [6.5]:
             add_via(vx, y_rf - 2.8)
             add_via(vx, y_rf + 2.8)
-        for vx in [W - 6.5]:
-            add_via(vx, y_rf - 2.8)
-            add_via(vx, y_rf + 2.8)
 
-        # Center isolation shield barrier vias between Port 1 and Port 2 (>60 dB isolation)
-        for bx in [13.5, 15.0, 16.5]:
-            for by in [4.0, 7.0, 10.0, 13.0, 16.0]:
-                add_via(bx, by)
+        # Solid ground stitching across the right section of the board
+        for vx in range(int(x_term1_b) + 3, int(W) - 3, 3):
+            for vy in range(4, int(H) - 3, 3):
+                add_via(float(vx), float(vy))
 
     elif len(c_keys) == 2 and (spec.topology == "bandpass_shunt" or "shunt" in spec.description.lower()):
         # Shunted Parallel LC Tank bandpass filter
@@ -523,17 +507,17 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         board.Add(t)
 
     if spec.topology in ["calibration_load", "load"]:
-        add_text("50Ω CAL LOAD", W / 2.0, 3.2, size=0.8)
-        add_text("PORT 1", 5.5, 4.5, size=0.8)
-        add_text("PORT 2", W - 5.5, 4.5, size=0.8)
-        add_text(f"{spec.z0_ohm:.0f}Ω SOLT MATCH DC-{spec.f_max_ghz:.0f}GHz", W / 2.0, H - 3.2, size=0.8)
+        add_text("50Ω CAL LOAD", W / 2.0, 3.0, size=0.8)
+        add_text("PORT 1", 7.0, 3.0, size=0.8)
+        add_text(f"{spec.z0_ohm:.0f}Ω 1-PORT SOLT DC-{spec.f_max_ghz:.0f}GHz", W / 2.0, H - 3.0, size=0.7)
     else:
         title_short = spec.title.split("(")[0].strip()
         if len(title_short) > 20:
             title_short = f"{spec.f_0_ghz*1000.0:.0f}MHz LC Bandpass"
         add_text(title_short, W / 2.0, 3.2, size=0.8)
         add_text("PORT 1", 5.0, 4.5, size=0.8)
-        add_text("PORT 2", W - 5.0, 4.5, size=0.8)
+        if has_j2:
+            add_text("PORT 2", W - 5.0, 4.5, size=0.8)
         add_text(f"{spec.z0_ohm:.0f}Ω {spec.trace_mode} w={spec.rf_trace_width_mm:.2f} s={spec.cpwg_gap_mm:.2f}", W / 2.0 - 1.0, H - 3.2, size=0.8)
 
     # 10. Save Board

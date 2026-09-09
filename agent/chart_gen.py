@@ -38,22 +38,35 @@ def render_rf_charts(spec: CircuitSpec, sim_data: Dict[str, Any], output_dir: st
     # Chart 1: S-Parameters (dB)
     if progress_callback:
         progress_callback("Rendering S-parameter frequency response chart (dB)...")
-    is_load = spec.topology in ["calibration_load", "load"]
-    s21_label = "S21 (Port-to-Port Isolation)" if is_load else "S21 (Insertion Loss / Gain)"
-    ax.plot(freqs, s21_db, color="#1f77b4", linewidth=2.2, label=s21_label)
-    ax.plot(freqs, s11_db, color="#d62728", linewidth=2.0, linestyle="--", label="S11 (Return Loss)")
-    if is_load and "s22_db" in sim_data:
-        ax.plot(freqs, sim_data["s22_db"], color="#9467bd", linewidth=1.5, linestyle=":", label="S22 (Port 2 Return Loss)")
-    if spec.target_s21_db:
-        lbl = f"Target Isolation ({spec.target_s21_db} dB)" if is_load else f"Target S21 ({spec.target_s21_db} dB)"
-        ax.axhline(spec.target_s21_db, color="#2ca02c", linestyle=":", alpha=0.8, label=lbl)
-    ax.set_title(f"{spec.title} - S-Parameter Performance", fontsize=13, fontweight="bold", pad=12)
-    ax.set_xlabel("Frequency (GHz)", fontsize=11)
-    ax.set_ylabel("Magnitude (dB)", fontsize=11)
-    y_min = min(np.min(s11_db) - 5, np.min(s21_db) - 5, -50)
-    y_max = max(np.max(s21_db) + 5, np.max(s11_db) + 5, 5)
-    ax.set_ylim([y_min, y_max])
-    ax.legend(loc="upper right" if is_load else "lower right", frameon=True)
+    fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+    if spec.num_ports == 1:
+        ax.plot(freqs, s11_db, color="#d62728", linewidth=2.2, label="S11 (Return Loss)")
+        if spec.target_s11_db:
+            ax.axhline(spec.target_s11_db, color="#2ca02c", linestyle=":", alpha=0.8, label=f"Target Return Loss ({spec.target_s11_db} dB)")
+        ax.set_title(f"{spec.title} - Return Loss Performance", fontsize=13, fontweight="bold", pad=12)
+        ax.set_xlabel("Frequency (GHz)", fontsize=11)
+        ax.set_ylabel("Return Loss (dB)", fontsize=11)
+        y_min = min(np.min(s11_db) - 5, -50)
+        y_max = max(np.max(s11_db) + 5, 0)
+        ax.set_ylim([y_min, y_max])
+        ax.legend(loc="lower right", frameon=True)
+    else:
+        is_load = spec.topology in ["calibration_load", "load"]
+        s21_label = "S21 (Port-to-Port Isolation)" if is_load else "S21 (Insertion Loss / Gain)"
+        ax.plot(freqs, s21_db, color="#1f77b4", linewidth=2.2, label=s21_label)
+        ax.plot(freqs, s11_db, color="#d62728", linewidth=2.0, linestyle="--", label="S11 (Return Loss)")
+        if is_load and "s22_db" in sim_data:
+            ax.plot(freqs, sim_data["s22_db"], color="#9467bd", linewidth=1.5, linestyle=":", label="S22 (Port 2 Return Loss)")
+        if spec.target_s21_db:
+            lbl = f"Target Isolation ({spec.target_s21_db} dB)" if is_load else f"Target S21 ({spec.target_s21_db} dB)"
+            ax.axhline(spec.target_s21_db, color="#2ca02c", linestyle=":", alpha=0.8, label=lbl)
+        ax.set_title(f"{spec.title} - S-Parameter Performance", fontsize=13, fontweight="bold", pad=12)
+        ax.set_xlabel("Frequency (GHz)", fontsize=11)
+        ax.set_ylabel("Magnitude (dB)", fontsize=11)
+        y_min = min(np.min(s11_db) - 5, np.min(s21_db) - 5, -50)
+        y_max = max(np.max(s21_db) + 5, np.max(s11_db) + 5, 5)
+        ax.set_ylim([y_min, y_max])
+        ax.legend(loc="upper right" if is_load else "lower right", frameon=True)
     ax.grid(True, linestyle="--", alpha=0.6)
     fig.tight_layout()
     sparam_path = os.path.join(charts_dir, "sparam_plot.png")
@@ -93,24 +106,43 @@ def render_rf_charts(spec: CircuitSpec, sim_data: Dict[str, Any], output_dir: st
         plt.close(fig)
     chart_files["smith"] = smith_path
 
-    # Chart 3: Rollett Stability Factor K
-    if progress_callback:
-        progress_callback("Rendering Rollett stability factor (K) curve...")
-    fig, ax = plt.subplots(figsize=(9, 4.5), dpi=150)
-    ax.plot(freqs, k_factor, color="#2ca02c", linewidth=2.2, label="Rollett Stability Factor (K)")
-    ax.axhline(1.0, color="#d62728", linestyle="--", linewidth=1.5, label="Unconditional Stability Threshold (K = 1.0)")
-    ax.set_title(f"{spec.title} - Rollett Stability Factor (K > 1.0)", fontsize=13, fontweight="bold", pad=12)
-    ax.set_xlabel("Frequency (GHz)", fontsize=11)
-    ax.set_ylabel("Stability Factor (K)", fontsize=11)
-    # Clip large K for visualization
-    ax.set_ylim([0.0, min(np.max(k_factor) * 1.1, 10.0)])
-    ax.legend(loc="upper right", frameon=True)
-    ax.grid(True, linestyle="--", alpha=0.6)
-    fig.tight_layout()
-    stab_path = os.path.join(charts_dir, "stability_plot.png")
-    fig.savefig(stab_path)
-    plt.close(fig)
-    chart_files["stability"] = stab_path
+    # Chart 3: Rollett Stability Factor K (for 2-port) or VSWR (for 1-port)
+    if spec.num_ports == 1:
+        if progress_callback:
+            progress_callback("Rendering Voltage Standing Wave Ratio (VSWR) curve...")
+        fig, ax = plt.subplots(figsize=(9, 4.5), dpi=150)
+        s11_mag = np.abs(s11)
+        vswr = (1.0 + s11_mag) / np.maximum(1.0 - s11_mag, 1e-6)
+        ax.plot(freqs, vswr, color="#2ca02c", linewidth=2.2, label="Simulated VSWR")
+        ax.axhline(1.06, color="#d62728", linestyle="--", linewidth=1.5, label="Target Limit (VSWR < 1.06:1)")
+        ax.set_title(f"{spec.title} - Voltage Standing Wave Ratio (VSWR)", fontsize=13, fontweight="bold", pad=12)
+        ax.set_xlabel("Frequency (GHz)", fontsize=11)
+        ax.set_ylabel("VSWR (:1)", fontsize=11)
+        ax.set_ylim([1.0, max(np.max(vswr) * 1.05, 1.15)])
+        ax.legend(loc="upper right", frameon=True)
+        ax.grid(True, linestyle="--", alpha=0.6)
+        fig.tight_layout()
+        stab_path = os.path.join(charts_dir, "stability_plot.png")
+        fig.savefig(stab_path)
+        plt.close(fig)
+        chart_files["stability"] = stab_path
+    else:
+        if progress_callback:
+            progress_callback("Rendering Rollett stability factor (K) curve...")
+        fig, ax = plt.subplots(figsize=(9, 4.5), dpi=150)
+        ax.plot(freqs, k_factor, color="#2ca02c", linewidth=2.2, label="Rollett Stability Factor (K)")
+        ax.axhline(1.0, color="#d62728", linestyle="--", linewidth=1.5, label="Unconditional Stability Threshold (K = 1.0)")
+        ax.set_title(f"{spec.title} - Rollett Stability Factor (K > 1.0)", fontsize=13, fontweight="bold", pad=12)
+        ax.set_xlabel("Frequency (GHz)", fontsize=11)
+        ax.set_ylabel("Stability Factor (K)", fontsize=11)
+        ax.set_ylim([0.0, min(np.max(k_factor) * 1.1, 10.0)])
+        ax.legend(loc="upper right", frameon=True)
+        ax.grid(True, linestyle="--", alpha=0.6)
+        fig.tight_layout()
+        stab_path = os.path.join(charts_dir, "stability_plot.png")
+        fig.savefig(stab_path)
+        plt.close(fig)
+        chart_files["stability"] = stab_path
 
     # Chart 4: Input Impedance (Real & Imaginary)
     if progress_callback:

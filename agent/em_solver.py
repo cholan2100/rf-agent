@@ -64,6 +64,16 @@ def run_em_simulation(spec: CircuitSpec, output_dir: str, progress_callback=None
                 f"{s22_mag[i]:.6f} {s22_ang[i]:8.2f}\n"
             )
 
+    if spec.num_ports == 1:
+        s1p_file = os.path.join(sim_dir, f"{spec.name}.s1p")
+        with open(s1p_file, "w", encoding="utf-8") as f:
+            f.write(f"! Touchstone 1-Port S-Parameter Data\n")
+            f.write(f"! Circuit: {spec.title}\n")
+            f.write(f"# GHz S MA R {spec.z0_ohm}\n")
+            f.write(f"! Freq(GHz)   S11_mag S11_ang\n")
+            for i, f_ghz in enumerate(freqs_ghz):
+                f.write(f"{f_ghz:10.4f}   {s11_mag[i]:.6f} {s11_ang[i]:8.2f}\n")
+
     # Verify Touchstone with scikit-rf if available
     skrf_ok = False
     try:
@@ -320,13 +330,18 @@ def _solve_calibration_load_s_params(spec: CircuitSpec, freqs_ghz: np.ndarray):
 
     # S11 = Gamma_load * exp(-2 * gamma_line * t_len)
     s11 = gamma_load * np.exp(-2.0 * gamma_line * t_len)
-    s22 = s11  # Port 2 is identically terminated
 
-    # Port 1 to Port 2 isolation across 4mm solid ground shield with dense via fence (>65 dB)
-    iso_db = -72.0 + 3.0 * freqs_ghz
-    iso_mag = 10.0 ** (iso_db / 20.0)
-    s21 = iso_mag * np.exp(-1j * beta * spec.width_mm * 1e-3)
-    s12 = s21
+    if spec.num_ports == 1:
+        s22 = np.zeros_like(s11, dtype=complex)
+        s21 = np.zeros_like(s11, dtype=complex)
+        s12 = np.zeros_like(s11, dtype=complex)
+    else:
+        s22 = s11  # Port 2 is identically terminated
+        # Port 1 to Port 2 isolation across solid ground shield with dense via fence (>65 dB)
+        iso_db = -72.0 + 3.0 * freqs_ghz
+        iso_mag = 10.0 ** (iso_db / 20.0)
+        s21 = iso_mag * np.exp(-1j * beta * spec.width_mm * 1e-3)
+        s12 = s21
 
     return np.abs(s11), np.angle(s11, deg=True), np.abs(s21), np.angle(s21, deg=True), np.abs(s12), np.angle(s12, deg=True), np.abs(s22), np.angle(s22, deg=True)
 
