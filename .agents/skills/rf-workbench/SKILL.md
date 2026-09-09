@@ -112,7 +112,7 @@ Autonomous agents invoke all solvers and Python engines headlessly through the s
 >
 > **TURN 2: Display Image & Call `ask_question`**
 > In the very next turn, you MUST do BOTH of the following simultaneously:
-> 1. **Emit Visible Markdown Text**: Write out the full visible chat message containing the deliverables table, 0 DRC violations check, and the embedded image using standard Markdown syntax.
+> 1. **Emit Visible Markdown Text (OUTSIDE the tool call)**: Write out the full visible chat message containing the deliverables table, 0 DRC violations check, and the embedded image using standard Markdown syntax. **You MUST output this as standard conversational text to the user, NOT inside your internal thoughts or tool arguments.**
 >    ```markdown
 >    Here is the completed schematic:
 >    ![Schematic](file:///<appDataDir>/brain/<conversation-id>/schematic_zoomed.png)
