@@ -192,14 +192,7 @@ rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spe
 ./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report
 ```
 
-### 2. Full Batch Pipeline Execution (Unattended)
-```bash
-# Windows:
-rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --f0 <center_freq_ghz> --z0 50
-
-# Linux / WSL:
-./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --f0 <center_freq_ghz> --z0 50
-```
+---
 
 ---
 

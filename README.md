@@ -8,7 +8,17 @@
 [![Python](https://img.shields.io/badge/Python-3.13.5-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![rf-suite](https://img.shields.io/badge/Toolchain-rf--suite-orange)](https://github.com/cholan2100/rf-suite)
 
-An autonomous AI RF/Microwave hardware engineering engine and PCB design suite. `rf-agent` enables AI coding agents and human engineers to autonomously synthesize schematics, route controlled-impedance coplanar waveguides, perform headless DRC verification, execute 3D electromagnetic FDTD simulations, and generate production-ready Gerber archives and raytraced 3D visualizations.
+An autonomous AI RF/Microwave hardware engineering engine and PCB design suite.
+
+> [!IMPORTANT]
+> **AI Harness Native**: This project is explicitly designed to be used inside an AI Agent Harness environment (such as Google's Antigravity, Cursor, Claude Code, GitHub Copilot Workspace, OpenDevin, etc.). 
+> 
+> **Intended Workflow**:
+> 1. Check out this repository inside your AI harness.
+> 2. Ask the harness agent to design an RF PCB (e.g., "Design a 10dB 2.4GHz Attenuator").
+> 3. The agent will read the provided instructions (`AGENTS.md` / `SKILLS.md`), follow the 9-stage engineering protocol, and synthesize the schematics, route the layout, and run the simulations autonomously.
+
+`rf-agent` enables AI coding agents to autonomously synthesize schematics, route controlled-impedance coplanar waveguides, perform headless DRC verification, execute 3D electromagnetic FDTD simulations, and generate production-ready Gerber archives and raytraced 3D visualizations.
 
 ---
 
@@ -256,18 +266,6 @@ rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibratio
 
 # Task 9: Performance Documentation & BOM
 ./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages report
-```
-
-### Full Unattended Batch Execution
-```bash
-# From natural language description
-rf-suite\bin\rf-run.bat python -m agent.workflow --desc "100 MHz LC Tank Bandpass Filter" --f0 0.1 --z0 50
-
-# From existing spec.json
-rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/bpf_100_lc/spec.json
-
-# Built-in presets (1: 10dB Attenuator, 2: 2.4GHz Filter, 3: Wilkinson)
-rf-suite\bin\rf-run.bat python -m agent.workflow --preset 1
 ```
 
 ---
