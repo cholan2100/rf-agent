@@ -24,22 +24,41 @@ description: >-
 >   - **Constraint**: **Do NOT prefer smaller components (e.g. 0402, 0201) unless strictly necessary**.
 > * **Resistors & Capacitors**: Standard **0805 Imperial / 2012 Metric** footprint packages with $45^\circ$ neckdown tapers ($1.87\text{ mm} \rightarrow 0.80\text{ mm}$).
 
-## Human-in-the-Loop Review Protocol (Mandatory)
+## Immediate Execution Policy (Zero Codebase Browsing Rule)
+> [!CRITICAL]
+> **WHEN A USER ASSIGNS A CIRCUIT DESIGN OR PCB CREATION WORKFLOW:**
+> 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
+> 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
+> 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard Docker execution command:
+>    ```bash
+>    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    ```
+>    The `agent.workflow` engine automatically parses the description, generates the mathematical circuit specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
+
+## Native Chat Handover & Render Protocol (100% Reliable Render Display)
+> [!IMPORTANT]
+> **DO NOT USE `ask_question` FOR STAGE REVIEWS**:
+> Invoking the modal tool `ask_question` suppresses chat text and causes image renders to fail to display in the chat window. Always provide the stage review directly as visible chat text and end your turn without calling tools.
 
 When executing an RF design project, **never execute stages in a silent uninterrupted batch unless explicitly requested**.
 Immediately upon completing **each task**, you must:
-1. **Single Native Markdown Image Display**: If the task generated visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.):
-   - Copy `.png` files to the artifact directory `<appDataDir>\brain\<conversation-id>\`.
-   - Embed each image ONCE using standard Markdown image syntax (`![<Description>](<artifact_path>)`) directly in the chat message.
-   - Do NOT generate HTML review files (`review_renders.html`) or `<agent-embed>` iframe tags, to avoid duplicate rendering and scrollbars.
-   - Never emit an empty tool turn when calling `ask_question`—always write out the visual image and deliverables in the chat message!
-
-2. **Show Deliverables Table**: Display the relative paths, file sizes, and status of generated files.
-3. **Engineering Integrity Check**: Verify DRC violations (0 errors, 0 warnings) and electrical specifications.
-4. **Interactive Confirmation via `ask_question`**: Prompt the user with context-specific text tailored to the active stage and upcoming task (never use static generic phrases):
-   - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
-   - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
-   - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
+1. **Copy Render(s) to Artifact Directory**:
+   Copy all visual outputs (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.) from `d:\Workspace\rf\rf-workbench\projects\<name>\renders\` (or `charts\`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item`.
+2. **Single Native Markdown Image Display**:
+   Embed each image ONCE using standard Markdown image syntax directly in the chat response:
+   ```markdown
+   ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
+   ```
+   *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
+   - Do NOT generate HTML review files (`review_renders.html`) or `<agent-embed>` iframe tags.
+3. **Show Deliverables Table**: Display the relative paths, file sizes, and status of generated files.
+4. **Engineering Integrity Check**: Verify DRC violations (0 errors, 0 warnings) and electrical specifications.
+5. **Numbered Review Choices in Chat**: Provide context-specific review options tailored to the active stage:
+   - `1. (Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
+   - `2. I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+   - `3. Pause execution here so I can review the deliverables and think through next steps.`
+6. **End Turn**: Stop calling tools. Prompt the user: *"Reply with **1** (or 'proceed') to continue to <Next Task>, or specify adjustments."*
 
 If the user requests reiteration, update `projects/<name>/spec.json` and re-run the specific stage using `--stages <stage>`.
 

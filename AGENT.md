@@ -16,7 +16,19 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 4. **Deliverable Delivery**: You present the complete engineering package (schematic, 3D renders, performance table, BOM, and production Gerbers) directly to the user in chat.
 5. **Parametric Tuning**: If simulation indicates parasitics or frequency shifts, you adjust parameters and reiterate until performance converges.
 
-### 1.1 Default Hardware & PCB Architecture Baseline
+### 1.1 Immediate Execution Policy (Zero Codebase Browsing Rule)
+> [!CRITICAL]
+> **WHEN A USER ASSIGNS A CIRCUIT DESIGN OR PCB CREATION WORKFLOW:**
+> 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
+> 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
+> 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard Docker execution command:
+>    ```bash
+>    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    ```
+>    The `agent.workflow` engine automatically parses the description, generates the mathematical circuit specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
+
+### 1.2 Default Hardware & PCB Architecture Baseline
 > [!IMPORTANT]
 > **If the user does not describe the PCB in detail, ALWAYS assume the standard baseline:**
 > * **Substrate Material**: Standard **FR4** ($\varepsilon_r = 4.40$, $\tan\delta = 0.02$).
@@ -168,26 +180,32 @@ As an autonomous agent, you must ensure:
 
 ---
 
-## 6. Human-in-the-Loop Stage Review Protocol & Immediate Chat Visualization
+## 6. Human-in-the-Loop Stage Review Protocol & Native Chat Visualization
 
-To maintain total transparency and engineering rigor, the agent follows a strict **Human-in-the-Loop Gating & Chat Visualization Protocol** during execution:
+To maintain total transparency, stability, and engineering rigor, the agent follows a strict **Native Chat Visualization & Stage Review Protocol**:
 
-### Mandatory Rules: Immediate Inline Chat Rendering & Stage Gating
-1. **Single Native Markdown Image Display**: Never just state that renders are saved on disk or output only file links. Immediately upon completing any stage that produces visual assets (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `bottom_render.png`, `sparam_plot.png`, `smith_chart.png`, etc.):
-   - **Artifact Directory Sync**: Copy the generated `.png` files to the conversation artifact directory `<appDataDir>\brain\<conversation-id>\`.
-   - **Native Markdown Embed (Single)**: Embed each image ONCE using standard Markdown syntax directly in the chat response:
+### Mandatory Rules: Native Chat Handover (100% Reliable Render Display)
+> [!IMPORTANT]
+> **DO NOT USE `ask_question` FOR STAGE REVIEWS**:
+> Invoking modal tools like `ask_question` frequently suppresses the agent's message text and pops up a blocking modal dialog over the chat, hiding the schematic/render from the user. Always output the review directly into visible chat text and end your turn without calling tools.
+
+1. **Copy Render(s) to Artifact Directory**:
+   Immediately upon completing any stage that produces visual assets (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `bottom_render.png`, `sparam_plot.png`, `smith_chart.png`, etc.):
+   - Copy the `.png` files from `d:\Workspace\rf\rf-workbench\projects\<name>\renders\` (or `charts\`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item`.
+2. **Single Native Markdown Image Display**:
+   - Embed each image ONCE using standard Markdown syntax directly in the visible chat response:
      ```markdown
      ![Zoomed Schematic](file:///<artifact_path>/schematic_zoomed.png)
      ```
-   - **No Redundant HTML Iframe Embeds**: Do NOT generate temporary review HTML files (`review_renders.html`) or `<agent-embed>` tags. Native Markdown image tags render cleanly, borderless, and at native resolution directly in the chat timeline without duplicate display or iframe scrollbars.
-   - **No Empty Tool Turns**: **NEVER** call `ask_question` with empty message text or in an isolated step. The chat response must contain the embedded visual render(s), deliverables table, and engineering health check directly above the interactive question prompt.
-2. **Never Advance Unattended**: Never execute subsequent stages automatically without explicit human confirmation.
-3. **Interactive Handover & Context-Aware Prompts**: In each stage review turn, present:
-   - The embedded visual render(s) rendered directly in the chat window.
-   - A deliverables breakdown table (file paths, sizes, metrics).
-   - An engineering integrity check (DRC 0 errors, CPWG impedance 50Ω, Pass/Fail tolerances).
-   - The interactive 3-option prompt via `ask_question`.
-   - **Context-Specific Option Text (Mandatory)**: Never use generic/static phrases like "I am satisfied with the output of this task" or "reiterate this task". Always tailor Option 1 and Option 2 to explicitly name the completed artifact and the immediate next step (e.g., *"Schematic looks good, let's move to PCB design"*).
+     *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
+   - **No Redundant HTML Iframe Embeds**: Do NOT generate temporary review HTML files (`review_renders.html`) or `<agent-embed>` tags. Native Markdown image tags render cleanly, borderless, and at full resolution directly in the chat timeline without duplicate display or iframe scrollbars.
+3. **Show Deliverables Table**: Itemize output files with relative paths, sizes (KB), and status.
+4. **Engineering Integrity Check**: Confirm DRC violations (0 errors, 0 warnings), CPWG impedance ($Z_0 = 50.0\,\Omega$), and electrical specifications.
+5. **Numbered Review Choices in Visible Text**: Provide context-specific review options tailored to the active stage:
+   - `1. (Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
+   - `2. I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+   - `3. Pause execution here so I can review the deliverables and think through next steps.`
+6. **End Turn Cleanly**: Stop calling tools after outputting the review. The user will see the render and can reply directly with `1`, `proceed`, or any adjustments.
 
 ### Stage-by-Stage Review & Context-Aware Prompt Mapping
 

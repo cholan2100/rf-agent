@@ -265,6 +265,46 @@ def parse_custom_circuit(
     """
     desc_lower = description.lower()
     
+    # 0. Calibration Load / 50Ω Termination Standard
+    if "load" in desc_lower or "calib" in desc_lower or "terminat" in desc_lower or "solt" in desc_lower:
+        f_max = max(3.0, round(f0_ghz * 2.0, 2))
+        return CircuitSpec(
+            name="calibration_load_50ohm",
+            title=f"{z0:.0f}Ω RF Calibration Load Standard (DC-{f_max:.0f}GHz)",
+            topology="calibration_load",
+            description=f"Precision {z0:.0f}-ohm RF calibration load standard for VNA SOLT calibration using dual symmetric 100-ohm 0805 thin-film resistors in parallel to ground on FR4 CPWG.",
+            f_min_ghz=0.01,
+            f_0_ghz=f0_ghz,
+            f_max_ghz=f_max,
+            z0_ohm=z0,
+            target_s21_db=-60.0,
+            target_s11_db=-30.0,
+            target_s22_db=-30.0,
+            target_isolation_db=-60.0,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            substrate_name=substrate_name,
+            dielectric_er=er,
+            substrate_height_mm=h_mm,
+            em_sim_type=em_sim_type,
+            components={
+                "R1": {"type": "resistor", "value": "100R", "nominal_ohm": 100.0, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Upper (Port 1)"},
+                "R2": {"type": "resistor", "value": "100R", "nominal_ohm": 100.0, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Lower (Port 1)"},
+                "R3": {"type": "resistor", "value": "100R", "nominal_ohm": 100.0, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Upper (Port 2)"},
+                "R4": {"type": "resistor", "value": "100R", "nominal_ohm": 100.0, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Lower (Port 2)"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": f"Port 1 ({z0:.0f}Ω Load)"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": f"Port 2 ({z0:.0f}Ω Load)"},
+            },
+            additional_reqs=[
+                f"{z0:.0f}-ohm Controlled Impedance CPWG Traces (w=1.87mm, gap=0.40mm)",
+                "Ground Via Fencing Stitching (0.4mm drill, 0.8mm pad)",
+                "Dual Parallel 100Ω Low-Inductance Shunt Termination",
+                "Center Port-to-Port Solid Ground Shield Wall (>60dB Isolation)",
+                "Solid Bottom Ground Plane (B.Cu)",
+                "Corner Radius Chamfers (2.0mm)"
+            ]
+        )
+
     # 1. Attenuator Detection (e.g. '6 dB attenuator', '20dB pi pad', '10 dB')
     att_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:db)?\s*(?:pi|tee|t)?\s*(?:attenuator|att|pad)?', desc_lower)
     is_attenuator = "attenuat" in desc_lower or "pad" in desc_lower or ("db" in desc_lower and not "filter" in desc_lower)

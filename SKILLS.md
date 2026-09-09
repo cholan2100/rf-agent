@@ -2,6 +2,17 @@
 
 This document serves as the operational reference manual for the specialized skills possessed by the **Autonomous RF Hardware Engineer Agent**.
 
+> [!CRITICAL]
+> **Immediate Execution Policy (Zero Codebase Browsing Rule)**:
+> When assigned a circuit design or PCB creation workflow:
+> 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or repository source files.
+> 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions.
+> 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
+> 4. **JUMP STRAIGHT INTO TASK 1 ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard Docker execution command:
+>    ```bash
+>    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    ```
+
 ---
 
 ## Skill 1: RF Requirements Engineering & CPWG Transmission Line Synthesis
@@ -171,20 +182,29 @@ Compiles `PERFORMANCE_REPORT.md` containing:
 
 ---
 
-## Skill 12: Human-in-the-Loop Stage Review Protocol & Iteration Gating
+## Skill 12: Human-in-the-Loop Stage Review Protocol & Native Chat Visualization
 
-After executing each task in the workflow, the agent executes an interactive review gate before continuing:
+After executing each task in the workflow, the agent executes a visible chat review gate before continuing:
 
-### Stage Handover Protocol
-1. **Single Native Markdown Image Display**: Immediately upon completing any stage with visual deliverables, copy `.png` assets to the conversation artifacts directory and embed each image ONCE using standard Markdown syntax directly in the chat response: `![<Description>](<artifact_path>)`. Do NOT generate intermediate HTML iframe cards (`review_renders.html` / `<agent-embed>`), as that duplicates images and creates unnecessary scrollbars.
-2. **No Empty Turns**: Never call `ask_question` in an isolated step without the visual render and deliverables table in the chat body.
-3. **Deliverables Summary**: Itemize output files with relative paths, sizes, and engineering parameters.
+### Stage Handover Protocol (100% Reliable Render Display)
+> [!IMPORTANT]
+> **DO NOT USE `ask_question` FOR STAGE REVIEWS**:
+> Invoking modal tools like `ask_question` suppresses message text and pops up an overlay that prevents the user from seeing the schematic/render. Always deliver the review directly as visible chat text and end your turn without calling tools.
+
+1. **Copy Render(s) to Artifact Directory**: Immediately upon completing any stage with visual deliverables, copy `.png` assets from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item`.
+2. **Single Native Markdown Image Display**: Embed each image ONCE using standard Markdown syntax directly in the visible chat response:
+   ```markdown
+   ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
+   ```
+   *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
+   - Do NOT generate intermediate HTML iframe cards (`review_renders.html` / `<agent-embed>`), as that duplicates images and creates unnecessary scrollbars.
+3. **Deliverables Summary**: Itemize output files with relative paths, sizes (KB), and status.
 4. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
-5. **Interactive Choice (`ask_question`)**:
-   - **Context-Specific Text (Mandatory)**: Never use generic static phrases. Customize Option 1 and Option 2 for the active task and upcoming step.
-   - **Option 1 (Proceed)**: Name the verified artifact and next action (e.g., *"Schematic looks good, let's move to PCB design"*).
-   - **Option 2 (Reiterate / Adjust)**: Name specific elements to iterate (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic"*).
-   - **Option 3 (Pause / Stop)**: *"Pause execution here so I can review the deliverables and think through next steps."*
+5. **Numbered Review Choices in Chat**: Provide context-specific review options directly in text:
+   - `1. (Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
+   - `2. I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+   - `3. Pause execution here so I can review the deliverables and think through next steps.`
+6. **End Turn Cleanly**: Stop calling tools after outputting the review. The user will see the render and can reply directly with `1`, `proceed`, or any adjustments.
 
 ### Stage Review & Prompt Mapping Matrix
 

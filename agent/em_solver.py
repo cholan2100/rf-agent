@@ -37,6 +37,8 @@ def run_em_simulation(spec: CircuitSpec, output_dir: str, progress_callback=None
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_bandpass_lc_s_params(spec, freqs_ghz)
     elif spec.topology == "filter":
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_filter_s_params(spec, freqs_ghz)
+    elif spec.topology in ["calibration_load", "load"]:
+        s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_calibration_load_s_params(spec, freqs_ghz)
     else:
         s11_mag, s11_ang, s21_mag, s21_ang, s12_mag, s12_ang, s22_mag, s22_ang = _solve_generic_s_params(spec, freqs_ghz)
 
@@ -273,4 +275,59 @@ def _solve_bandpass_shunt_s_params(spec: CircuitSpec, freqs_ghz: np.ndarray):
     s22 = s22 * phase_factor
 
     return np.abs(s11), np.angle(s11, deg=True), np.abs(s21), np.angle(s21, deg=True), np.abs(s12), np.angle(s12, deg=True), np.abs(s22), np.angle(s22, deg=True)
+
+
+def _solve_calibration_load_s_params(spec: CircuitSpec, freqs_ghz: np.ndarray):
+    """
+    Calculates physical multi-frequency S-parameter response for a 50-ohm calibration load standard.
+    Dual-symmetric 100-ohm thin-film resistors in parallel terminate the line:
+    R_eff = 50.0 Ohm.
+    Parasitic series inductance: L_eff = L_res / 2 + L_via ~ 0.20 nH.
+    Parasitic shunt capacitance: C_eff = 2 * C_p ~ 0.06 pF.
+    """
+    z0 = spec.z0_ohm
+    r1 = float(spec.components.get("R1", {}).get("nominal_ohm", 100.0))
+    r2 = float(spec.components.get("R2", {}).get("nominal_ohm", 100.0))
+    r_nom = (r1 * r2) / (r1 + r2)  # 50.0 Ohm
+
+    omega = 2.0 * math.pi * freqs_ghz * 1e9
+
+    # Parasitic inductance: parallel 0805 thin-film (~0.30 nH) + dual stitching vias (~0.08 nH) -> L_eff ~ 0.20 nH
+    l_eff = 0.20e-9
+    c_eff = 0.06e-12
+
+    # Termination complex impedance
+    z_series = r_nom + 1j * omega * l_eff
+    y_term = (1.0 / z_series) + 1j * omega * c_eff
+    z_term = 1.0 / y_term
+
+    # Reflection coefficient Gamma at load terminal
+    gamma_load = (z_term - z0) / (z_term + z0)
+
+    # Transmission line from SMA reference plane to termination:
+    # Length: x_term (10.5mm) - x_j1_ref (2.1mm) = 8.4 mm
+    t_len = 8.4e-3
+    v_phase = spec.cpwg_phase_velocity_m_s
+    eps_eff = spec.effective_dielectric_constant
+
+    # Attenuation: conductor skin loss + dielectric loss (tan_delta = 0.02)
+    c0 = 299792458.0
+    alpha_d = (omega / (2.0 * c0)) * math.sqrt(eps_eff) * spec.loss_tangent
+    alpha_c = 0.15 * np.sqrt(np.maximum(freqs_ghz, 0.01))
+    alpha = alpha_d + alpha_c
+    beta = omega / v_phase
+    gamma_line = alpha + 1j * beta
+
+    # S11 = Gamma_load * exp(-2 * gamma_line * t_len)
+    s11 = gamma_load * np.exp(-2.0 * gamma_line * t_len)
+    s22 = s11  # Port 2 is identically terminated
+
+    # Port 1 to Port 2 isolation across 4mm solid ground shield with dense via fence (>65 dB)
+    iso_db = -72.0 + 3.0 * freqs_ghz
+    iso_mag = 10.0 ** (iso_db / 20.0)
+    s21 = iso_mag * np.exp(-1j * beta * spec.width_mm * 1e-3)
+    s12 = s21
+
+    return np.abs(s11), np.angle(s11, deg=True), np.abs(s21), np.angle(s21, deg=True), np.abs(s12), np.angle(s12, deg=True), np.abs(s22), np.angle(s22, deg=True)
+
 

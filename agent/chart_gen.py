@@ -38,16 +38,22 @@ def render_rf_charts(spec: CircuitSpec, sim_data: Dict[str, Any], output_dir: st
     # Chart 1: S-Parameters (dB)
     if progress_callback:
         progress_callback("Rendering S-parameter frequency response chart (dB)...")
-    fig, ax = plt.subplots(figsize=(9, 5), dpi=150)
-    ax.plot(freqs, s21_db, color="#1f77b4", linewidth=2.2, label=f"S21 (Insertion Loss / Gain)")
-    ax.plot(freqs, s11_db, color="#d62728", linewidth=2.0, linestyle="--", label=f"S11 (Return Loss)")
+    is_load = spec.topology in ["calibration_load", "load"]
+    s21_label = "S21 (Port-to-Port Isolation)" if is_load else "S21 (Insertion Loss / Gain)"
+    ax.plot(freqs, s21_db, color="#1f77b4", linewidth=2.2, label=s21_label)
+    ax.plot(freqs, s11_db, color="#d62728", linewidth=2.0, linestyle="--", label="S11 (Return Loss)")
+    if is_load and "s22_db" in sim_data:
+        ax.plot(freqs, sim_data["s22_db"], color="#9467bd", linewidth=1.5, linestyle=":", label="S22 (Port 2 Return Loss)")
     if spec.target_s21_db:
-        ax.axhline(spec.target_s21_db, color="#2ca02c", linestyle=":", alpha=0.8, label=f"Target S21 ({spec.target_s21_db} dB)")
+        lbl = f"Target Isolation ({spec.target_s21_db} dB)" if is_load else f"Target S21 ({spec.target_s21_db} dB)"
+        ax.axhline(spec.target_s21_db, color="#2ca02c", linestyle=":", alpha=0.8, label=lbl)
     ax.set_title(f"{spec.title} - S-Parameter Performance", fontsize=13, fontweight="bold", pad=12)
     ax.set_xlabel("Frequency (GHz)", fontsize=11)
     ax.set_ylabel("Magnitude (dB)", fontsize=11)
-    ax.set_ylim([min(np.min(s11_db) - 5, -40), max(np.max(s21_db) + 5, 5)])
-    ax.legend(loc="lower right", frameon=True)
+    y_min = min(np.min(s11_db) - 5, np.min(s21_db) - 5, -50)
+    y_max = max(np.max(s21_db) + 5, np.max(s11_db) + 5, 5)
+    ax.set_ylim([y_min, y_max])
+    ax.legend(loc="upper right" if is_load else "lower right", frameon=True)
     ax.grid(True, linestyle="--", alpha=0.6)
     fig.tight_layout()
     sparam_path = os.path.join(charts_dir, "sparam_plot.png")

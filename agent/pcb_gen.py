@@ -250,7 +250,86 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
         add_via(x_j2_2, y_j2_2 + 1.2)
 
-    if len(c_keys) == 2 and (spec.topology == "bandpass_shunt" or "shunt" in spec.description.lower()):
+    if spec.topology in ["calibration_load", "load"]:
+        # Dual 50-Ohm Calibration Load Standard (Port 1 and Port 2 independent terminated lines)
+        x_term1_a = 8.5
+        x_term1_b = 11.0
+        x_term2_a = W - 8.5
+        x_term2_b = W - 11.0
+
+        # R1 (Port 1 upper shunt: 100R to GND)
+        fp1, val1 = get_fp_for_comp("R1")
+        fp1.SetReference("R1")
+        fp1.SetValue(val1)
+        place_shunt_fp(fp1, x_term1_a, y_rf)
+        board.Add(fp1)
+
+        # R2 (Port 1 lower shunt: 100R to GND)
+        fp2, val2 = get_fp_for_comp("R2")
+        fp2.SetReference("R2")
+        fp2.SetValue(val2)
+        fp2.SetOrientationDegrees(90.0)
+        fp2.SetPosition(pcbnew.VECTOR2I(0, 0))
+        p2_1 = fp2.FindPadByNumber("1")
+        off_y2 = (p2_1.GetPosition().y / 1e6) if p2_1 else -0.9125
+        fp2.SetPosition(pcbnew.VECTOR2I(mm(x_term1_b), mm(y_rf - off_y2)))
+        board.Add(fp2)
+
+        # R3 (Port 2 upper shunt: 100R to GND)
+        fp3, val3 = get_fp_for_comp("R3")
+        fp3.SetReference("R3")
+        fp3.SetValue(val3)
+        place_shunt_fp(fp3, x_term2_a, y_rf)
+        board.Add(fp3)
+
+        # R4 (Port 2 lower shunt: 100R to GND)
+        fp4, val4 = get_fp_for_comp("R4")
+        fp4.SetReference("R4")
+        fp4.SetValue(val4)
+        fp4.SetOrientationDegrees(90.0)
+        fp4.SetPosition(pcbnew.VECTOR2I(0, 0))
+        p4_1 = fp4.FindPadByNumber("1")
+        off_y4 = (p4_1.GetPosition().y / 1e6) if p4_1 else -0.9125
+        fp4.SetPosition(pcbnew.VECTOR2I(mm(x_term2_b), mm(y_rf - off_y4)))
+        board.Add(fp4)
+
+        # Pad Nets
+        assign_pad(fp1, "1", net_in)
+        assign_pad(fp1, "2", net_gnd)
+        assign_pad(fp2, "1", net_in)
+        assign_pad(fp2, "2", net_gnd)
+
+        assign_pad(fp3, "1", net_out)
+        assign_pad(fp3, "2", net_gnd)
+        assign_pad(fp4, "1", net_out)
+        assign_pad(fp4, "2", net_gnd)
+
+        # Route CPWG RF transmission lines
+        route_track(x_j1, y_j1, x_term1_b, y_rf, net_in, rf_w_mm)
+        route_track(x_j2, y_j2, x_term2_b, y_rf, net_out, rf_w_mm)
+
+        # Ground return vias for shunt resistors (routed outwards away from RF line)
+        for fp in [fp1, fp2, fp3, fp4]:
+            p2 = fp.FindPadByNumber("2").GetPosition()
+            x2, y2 = p2.x / 1e6, p2.y / 1e6
+            dy = 1.2 if y2 > y_rf else -1.2
+            route_track(x2, y2, x2, y2 + dy, net_gnd, 0.8)
+            add_via(x2, y2 + dy)
+
+        # CPWG Ground Fencing along Port 1 and Port 2 (clear of shunt ground vias)
+        for vx in [6.5]:
+            add_via(vx, y_rf - 2.8)
+            add_via(vx, y_rf + 2.8)
+        for vx in [W - 6.5]:
+            add_via(vx, y_rf - 2.8)
+            add_via(vx, y_rf + 2.8)
+
+        # Center isolation shield barrier vias between Port 1 and Port 2 (>60 dB isolation)
+        for bx in [13.5, 15.0, 16.5]:
+            for by in [4.0, 7.0, 10.0, 13.0, 16.0]:
+                add_via(bx, by)
+
+    elif len(c_keys) == 2 and (spec.topology == "bandpass_shunt" or "shunt" in spec.description.lower()):
         # Shunted Parallel LC Tank bandpass filter
         ref1, ref2 = c_keys[0], c_keys[1]
         fp1, val1 = get_fp_for_comp(ref1)
@@ -398,15 +477,16 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         add_via(x_c3_2, y_c3_2 + 1.2)
 
     # CPWG Via Fencing along RF Transmission Line
-    # Top fence row at y = y_rf - 2.8 mm (clear of Samtec pads ending at x=4.2 and W-4.2)
-    for vx in [6.5, 9.5, 12.5, 15.0, 17.5, 20.5, 23.5, 26.5, 28.5]:
-        if 5.0 < vx < (W - 5.0):
-            add_via(vx, y_rf - 2.8)
+    if spec.topology not in ["calibration_load", "load"]:
+        # Top fence row at y = y_rf - 2.8 mm (clear of Samtec pads ending at x=4.2 and W-4.2)
+        for vx in [6.5, 9.5, 12.5, 15.0, 17.5, 20.5, 23.5, 26.5, 28.5]:
+            if 5.0 < vx < (W - 5.0):
+                add_via(vx, y_rf - 2.8)
 
-    # Bottom fence row at y = y_rf + 5.0 mm
-    for vx in [6.5, 9.5, 13.0, 15.0, 17.0, 21.0, 24.5, 28.5]:
-        if 5.0 < vx < (W - 5.0):
-            add_via(vx, y_rf + 5.0)
+        # Bottom fence row at y = y_rf + 5.0 mm
+        for vx in [6.5, 9.5, 13.0, 15.0, 17.0, 21.0, 24.5, 28.5]:
+            if 5.0 < vx < (W - 5.0):
+                add_via(vx, y_rf + 5.0)
 
     # Perimeter ground fence
     for vx in range(6, int(W) - 4, 4):
@@ -442,13 +522,19 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         t.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
         board.Add(t)
 
-    title_short = spec.title.split("(")[0].strip()
-    if len(title_short) > 20:
-        title_short = f"{spec.f_0_ghz*1000.0:.0f}MHz LC Bandpass"
-    add_text(title_short, W / 2.0, 3.2, size=0.8)
-    add_text("PORT 1", 5.0, 4.5, size=0.8)
-    add_text("PORT 2", W - 5.0, 4.5, size=0.8)
-    add_text(f"{spec.z0_ohm:.0f}Ω {spec.trace_mode} w={spec.rf_trace_width_mm:.2f} s={spec.cpwg_gap_mm:.2f}", W / 2.0 - 1.0, H - 3.2, size=0.8)
+    if spec.topology in ["calibration_load", "load"]:
+        add_text("50Ω CAL LOAD", W / 2.0, 3.2, size=0.8)
+        add_text("PORT 1", 5.5, 4.5, size=0.8)
+        add_text("PORT 2", W - 5.5, 4.5, size=0.8)
+        add_text(f"{spec.z0_ohm:.0f}Ω SOLT MATCH DC-{spec.f_max_ghz:.0f}GHz", W / 2.0, H - 3.2, size=0.8)
+    else:
+        title_short = spec.title.split("(")[0].strip()
+        if len(title_short) > 20:
+            title_short = f"{spec.f_0_ghz*1000.0:.0f}MHz LC Bandpass"
+        add_text(title_short, W / 2.0, 3.2, size=0.8)
+        add_text("PORT 1", 5.0, 4.5, size=0.8)
+        add_text("PORT 2", W - 5.0, 4.5, size=0.8)
+        add_text(f"{spec.z0_ohm:.0f}Ω {spec.trace_mode} w={spec.rf_trace_width_mm:.2f} s={spec.cpwg_gap_mm:.2f}", W / 2.0 - 1.0, H - 3.2, size=0.8)
 
     # 10. Save Board
     pcbnew.SaveBoard(pcb_path, board)

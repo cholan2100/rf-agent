@@ -43,11 +43,20 @@ def generate_performance_report(
     zin_real_mean = float(np.mean(np.real(z_in)))
 
     # Compliance checks
-    s21_pass = abs(s21_mean - spec.target_s21_db) <= 1.0
+    is_load = spec.topology in ["calibration_load", "load"]
+    if is_load:
+        s21_pass = s21_max <= spec.target_s21_db
+    else:
+        s21_pass = abs(s21_mean - spec.target_s21_db) <= 1.0
     s11_pass = s11_worst <= spec.target_s11_db + 5.0
     k_pass = k_min >= 1.0
 
     today = datetime.date.today().isoformat()
+
+    s21_title = "Port-to-Port Isolation (S21)" if is_load else "Insertion Loss / Attenuation (S21)"
+    s21_target_str = f"< {spec.target_s21_db:.1f} dB" if is_load else f"{spec.target_s21_db:+.1f} dB"
+    s21_note = "High isolation across solid ground shield wall" if is_load else f"Flatness ripple: ±{s21_flatness/2.0:.2f} dB across full band"
+    s22_note = "Symmetric 50Ω load termination on Port 2" if is_load else "Reciprocal Pi-network structure"
 
     content = f"""# PCB Performance & Verification Report: {spec.title}
 
@@ -62,9 +71,9 @@ def generate_performance_report(
 | Engineering Metric | Target Specification | Simulated Performance | Status | Margin / Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | **Frequency Range** | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | {spec.f_min_ghz:.2f} GHz - {spec.f_max_ghz:.2f} GHz | **PASS** | Evaluated across {len(freqs)} discrete points |
-| **Insertion Loss / Attenuation (S21)** | {spec.target_s21_db:+.1f} dB | **{s21_mean:+.2f} dB** (range: {s21_min:+.2f} to {s21_max:+.2f} dB) | **{'PASS' if s21_pass else 'MARGINAL'}** | Flatness ripple: ±{s21_flatness/2.0:.2f} dB across full band |
+| **{s21_title}** | {s21_target_str} | **{s21_mean:+.2f} dB** (range: {s21_min:+.2f} to {s21_max:+.2f} dB) | **{'PASS' if s21_pass else 'MARGINAL'}** | {s21_note} |
 | **Input Return Loss (S11)** | < {spec.target_s11_db:.1f} dB | **{s11_worst:+.2f} dB** (worst case) | **{'PASS' if s11_pass else 'MARGINAL'}** | Excellent 50Ω input match |
-| **Output Return Loss (S22)** | < {spec.target_s22_db:.1f} dB | **{s11_worst:+.2f} dB** (symmetric) | **{'PASS' if s11_pass else 'MARGINAL'}** | Reciprocal Pi-network structure |
+| **Output Return Loss (S22)** | < {spec.target_s22_db:.1f} dB | **{s11_worst:+.2f} dB** (symmetric) | **{'PASS' if s11_pass else 'MARGINAL'}** | {s22_note} |
 | **Rollett Stability Factor (K)** | K > 1.00 (Unconditional) | **{k_min:.2f}** (minimum across band) | **{'PASS' if k_pass else 'FAIL'}** | Unconditionally stable at all operational frequencies |
 | **Characteristic Impedance (Z0)** | {spec.z0_ohm:.1f} Ω | **{zin_real_mean:.1f} Ω** | **PASS** | Synthesized {spec.trace_mode} width: {spec.rf_trace_width_mm:.2f} mm (gap: {spec.cpwg_gap_mm:.2f} mm) |
 | **DC Bias / Power Consumption** | {spec.power_supply_type} | 0.0 mA (Passive) | **PASS** | No external power supply required |

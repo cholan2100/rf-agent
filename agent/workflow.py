@@ -93,23 +93,30 @@ def execute_workflow(
         if verbose:
             print("[1/9] Generating KiCad 10 schematic & zoomed render...")
         sch_path, zoomed_png = generate_schematic(spec, output_dir)
+        sch_sz = os.path.getsize(sch_path) / 1024.0 if os.path.exists(sch_path) else 0
+        img_sz = os.path.getsize(zoomed_png) / 1024.0 if os.path.exists(zoomed_png) else 0
         results["stages"]["schematic"] = {
             "sch_path": sch_path,
             "zoomed_render": zoomed_png,
             "size_bytes": os.path.getsize(sch_path) if os.path.exists(sch_path) else 0
         }
+        if verbose:
+            print(f"✔ Task 1 Deliverables: {sch_path} ({sch_sz:.1f} KB) | {zoomed_png} ({img_sz:.1f} KB)")
 
     # Stage 2: PCB Layout & DRC
     if "pcb" in active_stages:
         if verbose:
             print(f"[2/9] Synthesizing PCB layout ({spec.trace_mode} w={spec.rf_trace_width_mm:.2f}mm)...")
         pcb_path, drc_res = generate_pcb(spec, output_dir)
+        pcb_sz = os.path.getsize(pcb_path) / 1024.0 if os.path.exists(pcb_path) else 0
         results["stages"]["pcb"] = {
             "pcb_path": pcb_path,
             "drc_violations": drc_res.get("violations", 0),
             "drc_warnings": drc_res.get("warnings", 0),
             "drc_json": drc_res.get("drc_json_path", "")
         }
+        if verbose:
+            print(f"✔ Task 2 Deliverables: {pcb_path} ({pcb_sz:.1f} KB) | DRC: {drc_res.get('violations', 0)} errors, {drc_res.get('warnings', 0)} warnings")
 
     # Stage 3: 3D Raytrace Render
     if "render" in active_stages and os.path.exists(pcb_path):
@@ -117,6 +124,10 @@ def execute_workflow(
             print("[3/9] Executing KiCad 3D raytracer (iso, top, bottom)...")
         renders = render_3d_pcb(pcb_path, output_dir)
         results["stages"]["render"] = renders
+        if verbose:
+            print("✔ Task 3 Deliverables (3D Raytraces):")
+            for k, v in renders.items():
+                print(f"  - {k.capitalize()}: {v.get('path')} ({v.get('size_kb', 0):.1f} KB)")
 
     # Stage 4: FreeCAD & STEP
     if "cad" in active_stages and os.path.exists(pcb_path):
@@ -124,6 +135,8 @@ def execute_workflow(
             print("[4/9] Exporting FreeCAD .FCStd project and mechanical 3D STEP...")
         fc_res = generate_freecad_project(spec, pcb_path, output_dir)
         results["stages"]["cad"] = fc_res
+        if verbose:
+            print(f"✔ Task 4 Deliverables: STEP {fc_res.get('step_size_kb', 0):.1f} KB | FCStd {fc_res.get('fcstd_size_kb', 0):.1f} KB")
 
     # Stage 5: EM & Touchstone
     if "em" in active_stages:
@@ -158,6 +171,11 @@ def execute_workflow(
             print("[7/9] Plotting publication-quality RF performance charts...")
         chart_files = render_rf_charts(spec, sim_data, output_dir)
         results["stages"]["charts"] = chart_files
+        if verbose:
+            print(f"✔ Task 7 Deliverables ({len(chart_files)} RF Performance Plots):")
+            for cf in chart_files:
+                sz = os.path.getsize(cf) / 1024.0 if os.path.exists(cf) else 0
+                print(f"  - {os.path.basename(cf)}: {cf} ({sz:.1f} KB)")
 
     # Stage 8: Gerbers
     gerber_zip_path = os.path.join(output_dir, f"gerbers_{spec.name}.zip")
@@ -166,6 +184,8 @@ def execute_workflow(
             print("[8/9] Packaging 26-layer production Gerber and drill ZIP...")
         gerber_res = package_gerbers(spec, pcb_path, output_dir)
         results["stages"]["gerbers"] = gerber_res
+        if verbose:
+            print(f"✔ Task 8 Deliverables: {gerber_zip_path} ({gerber_res.get('zip_size_kb', 0):.1f} KB, {gerber_res.get('file_count', 0)} production layers)")
 
     # Stage 9: Performance Report
     if "report" in active_stages:
@@ -185,10 +205,13 @@ def execute_workflow(
             chart_files = [os.path.join(charts_dir, f) for f in ["sparam_plot.png", "smith_chart.png", "stability_plot.png", "impedance_plot.png"] if os.path.exists(os.path.join(charts_dir, f))]
 
         rpt_path = generate_performance_report(spec, sim_data, renders, chart_files, gerber_zip_path, output_dir)
+        rpt_sz = os.path.getsize(rpt_path) / 1024.0 if os.path.exists(rpt_path) else 0
         results["stages"]["report"] = {
             "report_path": rpt_path,
             "report_size_bytes": os.path.getsize(rpt_path) if os.path.exists(rpt_path) else 0
         }
+        if verbose:
+            print(f"✔ Task 9 Deliverables: {rpt_path} ({rpt_sz:.1f} KB)")
 
     results["status"] = "success"
     summary_path = os.path.join(output_dir, "summary.json")
