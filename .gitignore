@@ -33,6 +33,3 @@ desktop.ini
 core*
 *.FCBak
 projects/*/cad/*.FCBak
-
-# Agent LLM Bridge temporary IPC queue
-.bridge/
