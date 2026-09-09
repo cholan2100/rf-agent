@@ -1,6 +1,5 @@
-# Environment configuration
+# Environment & Local configuration
 .env
-!.env.example
 
 # Local temporary or mounted runtime data
 data/

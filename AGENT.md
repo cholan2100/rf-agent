@@ -11,7 +11,7 @@ Your role is to autonomously translate high-level RF engineering requirements in
 In this repository, **the user does NOT run procedural Python scripts**. You (the AI Agent) directly drive the entire EDA engineering lifecycle:
 
 1. **Intake & RF Reasoning**: You interpret the user's circuit description, frequency band, impedance, and board constraints.
-2. **Autonomous Tool Execution**: You execute the containerized toolchain commands headlessly inside the Docker environment.
+2. **Autonomous Tool Execution**: You execute the toolchain commands headlessly directly in Python or inside the external RF container environment (`rf-suite`).
 3. **Multi-Disciplinary Verification**: You inspect DRC error counts, verify Touchstone S-parameters, review 3D raytraces, and confirm physical viability.
 4. **Deliverable Delivery**: You present the complete engineering package (schematic, 3D renders, performance table, BOM, and production Gerbers) directly to the user in chat.
 5. **Parametric Tuning**: If simulation indicates parasitics or frequency shifts, you adjust parameters and reiterate until performance converges.
@@ -22,9 +22,12 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard Docker execution command:
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard execution command:
 >    ```bash
->    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    # If running via the external RF container environment (rf-suite):
+>    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    # Or directly in a Python RF runtime environment:
+>    python3 -m agent.workflow --desc '<circuit description>' --stages schematic
 >    ```
 >    The `agent.workflow` engine automatically parses the description, generates the mathematical circuit specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
 
@@ -57,10 +60,10 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 
 ## 2. Toolchain & Runtime Environment
 
-All EDA/CAD and EM solvers execute headlessly inside the isolated Debian Docker container (`rf-workbench-env`).
+All EDA/CAD and EM solvers execute headlessly either directly in a Python RF runtime environment or inside the external Debian Docker container (`rf-suite-env` from `d:\Workspace\rf\rf-suite`).
 
 ### Environment Specifications
-* **Operating System**: Debian 13 (Trixie) inside container
+* **Operating System**: Debian 13 (Trixie) or Linux runtime
 * **Schematic & PCB CAD**: KiCad 10.0.4 (`pcbnew` Python C++ bindings, `kicad-cli`)
 * **3D Mechanical CAD**: FreeCAD 1.0.0 (`FreeCADCmd`, OpenCASCADE STEP exporter)
 * **Electromagnetic Solver**: openEMS 0.0.35 (FDTD multi-port S-parameter extraction)
@@ -68,9 +71,13 @@ All EDA/CAD and EM solvers execute headlessly inside the isolated Debian Docker 
 * **Python Runtime**: Python 3.13 with `scikit-rf`, `cairosvg`, `matplotlib`, `numpy`, `PIL`
 
 ### Agent Command Invocation Pattern
-Run all container operations through WSL / Docker Compose:
+You can run workflow operations either via the external container environment or directly via Python:
 ```bash
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow [arguments]"
+# Via external container (rf-suite):
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow [arguments]"
+
+# Directly in Python runtime environment:
+python3 -m agent.workflow [arguments]
 ```
 
 ---
@@ -134,43 +141,55 @@ The autonomous workflow consists of 9 modular engineering stages orchestrated by
 Execute stages individually to allow human review at each step:
 ```bash
 # Task 1: Schematic Synthesis & Zoomed Crop
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages schematic"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages schematic"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages schematic
 
 # Task 2: Controlled Impedance PCB Layout & DRC
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
 
 # Task 3: 3D Raytracing (Iso, Top, Bottom)
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render
 
 # Task 4: Mechanical CAD & 3D STEP Assembly
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad
 
-# Task 5: openEMS EM Simulation -> Touchstone .s2p
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em"
+# Task 5: openEMS EM Simulation -> Touchstone .s2p / .s1p
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em
 
 # Task 6: Qucsator Linear Co-Simulation
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs
 
 # Task 7: RF Performance Charts (S-Params, Smith Chart, Stability, Zin)
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts
 
 # Task 8: Production Gerber & Drill ZIP Packaging
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers
 
 # Task 9: Performance Documentation & BOM
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report
 ```
 
 ### Full Autonomous Pipeline Execution
 ```bash
 # From natural language description
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '100 MHz LC Tank Bandpass Filter' --f0 0.1 --z0 50"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --desc '100 MHz LC Tank Bandpass Filter' --f0 0.1 --z0 50"
+# Direct: python3 -m agent.workflow --desc '100 MHz LC Tank Bandpass Filter' --f0 0.1 --z0 50
 
 # From existing spec.json
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json"
+# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json
 
 # Preset execution (1: 10dB Attenuator, 2: 2.4GHz Filter, 3: Wilkinson)
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --preset 1"
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --preset 1"
+# Direct: python3 -m agent.workflow --preset 1
 ```
 
 ---

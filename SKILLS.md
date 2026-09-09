@@ -8,9 +8,12 @@ This document serves as the operational reference manual for the specialized ski
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO TASK 1 ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard Docker execution command:
+> 4. **JUMP STRAIGHT INTO TASK 1 ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard execution command:
 >    ```bash
->    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    # If running via the external RF container environment (rf-suite):
+>    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    # Or directly in a Python RF runtime environment:
+>    python3 -m agent.workflow --desc '<circuit description>' --stages schematic
 >    ```
 
 ---
