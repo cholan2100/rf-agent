@@ -33,3 +33,8 @@ desktop.ini
 core*
 *.FCBak
 projects/*/cad/*.FCBak
+
+# Generated design projects
+projects/*
+!projects/.gitkeep
+

@@ -149,34 +149,41 @@ As an autonomous agent, you must ensure:
 
 ---
 
-## 6. Human-in-the-Loop Stage Review Protocol & Gating
+## 6. Human-in-the-Loop Stage Review Protocol & Immediate Chat Visualization
 
-To maintain total transparency and engineering rigor, the agent follows a strict **Human-in-the-Loop Gating Protocol** during execution:
+To maintain total transparency and engineering rigor, the agent follows a strict **Human-in-the-Loop Gating & Chat Visualization Protocol** during execution:
 
-### Mandatory Rules: Inline Chat Rendering & Gating
-1. **Direct Inline Chat Image Rendering**: Never just state that renders are saved on disk or only provide file links. After completing any stage that produces visual assets (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `bottom_render.png`, `sparam_plot.png`, `smith_chart.png`, etc.):
-   - Immediately copy the generated `.png` files to `<appDataDir>\brain\<conversation-id>\`.
-   - Embed the images directly into the chat response using Markdown image syntax: `![<Description>](C:/Users/gsr/.../<filename>.png)`.
-   - The user must be able to visually review the schematic, 3D PCB layout, or RF simulation charts directly inside the chat conversation window.
-2. **Never Advance Unattended**: Never execute subsequent stages automatically without explicit user confirmation.
-3. **Interactive Handover**: In each stage review message, present:
-   - The embedded visual render(s).
+### Mandatory Rules: Immediate Inline Chat Rendering & Stage Gating
+1. **Immediate Inline Chat Display**: Never just state that renders are saved on disk or output only file links. Immediately upon completing any stage that produces visual assets (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `bottom_render.png`, `sparam_plot.png`, `smith_chart.png`, etc.):
+   - **Artifact Directory Sync**: Copy the generated `.png` files to the conversation artifact directory `<appDataDir>\brain\<conversation-id>\`.
+   - **Generative UI Review Card**: Construct a self-contained HTML widget (`review_renders.html`) with the images embedded directly as base64 data URIs (`data:image/png;base64,...`) and styled via Tailwind CSS, and embed it inline in the chat message using:
+     ```html
+     <agent-embed src="file:///<artifact_path>/review_renders.html"></agent-embed>
+     ```
+   - **Markdown Image Fallback**: Also embed standard Markdown image tags directly in the chat body:
+     ```markdown
+     ![Zoomed Schematic](file:///<artifact_path>/schematic_zoomed.png)
+     ```
+   - **No Empty Tool Turns**: **NEVER** call `ask_question` with empty message text or in an isolated step. The chat response must contain the embedded visual render(s), deliverables table, and engineering health check directly above the interactive question prompt.
+2. **Never Advance Unattended**: Never execute subsequent stages automatically without explicit human confirmation.
+3. **Interactive Handover**: In each stage review turn, present:
+   - The embedded visual render(s) rendered directly in the chat window.
    - A deliverables breakdown table (file paths, sizes, metrics).
    - An engineering integrity check (DRC 0 errors, CPWG impedance 50Ω, Pass/Fail tolerances).
    - The interactive 3-option prompt via `ask_question`.
 
 ### Stage-by-Stage Review Deliverables Mapping
 
-| Task # | Stage Name | Deliverable Files | Visual Artifacts for Inspection | Review Focus |
+| Task # | Stage Name | Deliverable Files | Immediate Chat Visual Assets | Review Focus |
 |---|---|---|---|---|
-| **Task 1** | `schematic` | `<name>.kicad_sch`<br>`renders/schematic_zoomed.png` | Zoomed schematic crop showing components, nets, and 50Ω ports | Circuit topology, component values, reference designators, port matching |
-| **Task 2** | `pcb` | `<name>.kicad_pcb`<br>`<name>_drc.json` | DRC result log (must be 0 errors, 0 warnings) | CPWG trace width ($w$), gap ($s$), 45° pad tapers, via fencing rows |
-| **Task 3** | `render` | `renders/iso_render.png`<br>`renders/top_render.png`<br>`renders/bottom_render.png` | Photorealistic 3D Raytraced Isometric, Top, and Bottom views | SMD solder pad alignment, connector clearance, ground stitching aesthetics |
+| **Task 1** | `schematic` | `<name>.kicad_sch`<br>`renders/schematic_zoomed.png` | Zoomed high-DPI schematic crop rendered inline in chat | Circuit topology, component values, reference designators, 50Ω ports |
+| **Task 2** | `pcb` | `<name>.kicad_pcb`<br>`<name>_drc.json` | Headless DRC report summary (0 errors, 0 warnings) | CPWG trace width ($w$), gap ($s$), 45° pad tapers, via fencing rows |
+| **Task 3** | `render` | `renders/iso_render.png`<br>`renders/top_render.png`<br>`renders/bottom_render.png` | Photorealistic 3D Raytraced Isometric, Top, and Bottom views in chat | SMD solder pad alignment, connector clearance, ground stitching aesthetics |
 | **Task 4** | `cad` | `cad/<name>.step`<br>`cad/<name>.FCStd` | STEP assembly file size and FreeCAD geometry status | Enclosure fitment, board edge chamfers, M2 mounting hole placement |
-| **Task 5** | `em` | `simulation/<name>.s2p`<br>`simulation/<name>_openems.m` | Touchstone frequency range and point count summary | S-parameter passivity, causality, port reference impedance (50Ω) |
+| **Task 5** | `em` | `simulation/<name>.s2p`<br>`simulation/<name>_openems.m` | Touchstone frequency range and 201-point sweep summary | S-parameter passivity, causality, port reference impedance (50Ω) |
 | **Task 6** | `qucs` | `simulation/<name>_qucs.sch`<br>`simulation/<name>.net`<br>`simulation/<name>.dat` | Qucsator co-simulation convergence & netlist status | 50Ω system termination, S-parameter block interconnection |
-| **Task 7** | `charts` | `charts/sparam_plot.png`<br>`charts/smith_chart.png`<br>`charts/stability_plot.png`<br>`charts/impedance_plot.png` | Matplotlib 300 DPI plots: S21/S11 curves, Smith chart circle, Stability K, Zin | Insertion loss at $f_0$, Return loss margin ($<-15$ dB), passband ripple |
-| **Task 8** | `gerbers` | `gerbers_<name>.zip` | Gerber file manifest & layer list | 26 layers complete: copper, solder mask, silkscreen, paste, drill (.drl) |
+| **Task 7** | `charts` | `charts/sparam_plot.png`<br>`charts/smith_chart.png`<br>`charts/stability_plot.png`<br>`charts/impedance_plot.png` | Matplotlib 300 DPI plots displayed inline: S21/S11, Smith chart, Stability K, Zin | Insertion loss at $f_0$, Return loss margin ($<-15$ dB), passband ripple |
+| **Task 8** | `gerbers` | `gerbers_<name>.zip` | Gerber file manifest & 26-layer verification | Complete production layers: copper, mask, silkscreen, paste, drill (.drl) |
 | **Task 9** | `report` | `PERFORMANCE_REPORT.md` | Full performance summary markdown table and Bill of Materials | Spec vs Simulated delta, margin flags, component sourcing table |
 
 ### Handling User Response
@@ -185,9 +192,10 @@ To maintain total transparency and engineering rigor, the agent follows a strict
   1. Receive user suggestions (e.g., "Increase capacitance from 33pF to 47pF", "Widen board by 5mm", "Shift center frequency to 144 MHz").
   2. Update `projects/<name>/spec.json`.
   3. Re-run the current task (and any necessary upstream tasks) using `--stages <stage>`.
-  4. Present the updated deliverables and re-prompt for confirmation.
+  4. Immediately display the updated visual render in the chat and re-prompt for confirmation.
 * **User chooses Option 3 (Stop / Pause)**:
   1. Halt pipeline execution immediately.
   2. Confirm that all artifacts generated up to the current stage are safely preserved in `projects/<name>/`.
   3. Provide instructions on how to resume when ready.
+
 
