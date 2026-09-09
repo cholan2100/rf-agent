@@ -26,6 +26,7 @@ from .spec import (
     calc_microstrip_width,
     parse_custom_circuit
 )
+from .llm_bridge import LLMClient
 from .schematic_gen import generate_schematic
 from .pcb_gen import generate_pcb
 from .renderer import render_3d_pcb
@@ -92,7 +93,13 @@ def render_dashboard(current_task_idx: int, frame_idx: int, current_activity: st
     )
 
 
-def prompt_user_for_spec(batch_mode: bool = False, preset_choice: Optional[str] = None) -> CircuitSpec:
+def prompt_user_for_spec(
+    batch_mode: bool = False,
+    preset_choice: Optional[str] = None,
+    llm_provider: str = "agent",
+    bridge_timeout: int = 30,
+    custom_desc: Optional[str] = None
+) -> CircuitSpec:
     """Interactive questionnaire for user requirements with smart defaults."""
     console.print()
     console.print(Panel.fit(
@@ -103,6 +110,10 @@ def prompt_user_for_spec(batch_mode: bool = False, preset_choice: Optional[str] 
     ))
 
     if batch_mode:
+        if custom_desc:
+            console.print(f"[green]Synthesizing custom circuit via LLM Bridge: [bold]{custom_desc}[/bold][/green]")
+            llm = LLMClient(provider=llm_provider, timeout_sec=bridge_timeout)
+            return llm.synthesize_circuit(custom_desc)
         preset_key = preset_choice or "1"
         spec = PRESETS.get(preset_key, PRESET_10DB_ATTENUATOR)
         console.print(f"[green]Running in non-interactive batch mode with preset: [bold]{spec.title}[/bold][/green]")
@@ -156,10 +167,10 @@ def prompt_user_for_spec(batch_mode: bool = False, preset_choice: Optional[str] 
     em_opt = Prompt.ask("EM Simulation Option", choices=["1", "2"], default="1")
     em_type = "traces" if em_opt == "1" else "full_board"
 
-    # Synthesize spec from description using analytical engine
-    spec = parse_custom_circuit(
+    # Synthesize spec from description using LLM router (Agent Bridge or API)
+    llm = LLMClient(provider=llm_provider, timeout_sec=bridge_timeout)
+    spec = llm.synthesize_circuit(
         description=desc,
-        title=title,
         f0_ghz=f_0,
         z0=z0,
         width_mm=width,
@@ -191,7 +202,13 @@ def prompt_user_for_spec(batch_mode: bool = False, preset_choice: Optional[str] 
     return spec
 
 
-def run_pipeline(spec: CircuitSpec, project_root: str = "projects", batch_mode: bool = False):
+def run_pipeline(
+    spec: CircuitSpec,
+    project_root: str = "projects",
+    batch_mode: bool = False,
+    llm_provider: str = "agent",
+    bridge_timeout: int = 30
+):
     """Execute the full 11-stage autonomous agent pipeline."""
     output_dir = os.path.join(project_root, spec.name)
     os.makedirs(output_dir, exist_ok=True)
@@ -359,15 +376,27 @@ def run_pipeline(spec: CircuitSpec, project_root: str = "projects", batch_mode: 
         border_style="green"
     ))
 
-    reiterate = Confirm.ask("\n[bold yellow]Task 11: Would you like to reiterate or adjust parameters (e.g. tuning frequency, board size)?", default=False)
+    reiterate = Confirm.ask("\n[bold yellow]Task 11: Would you like to reiterate or analyze design with AI?", default=False)
     if reiterate:
+        console.print("[cyan]Querying LLM Bridge for simulation performance diagnosis...[/cyan]")
+        llm = LLMClient(provider=llm_provider, timeout_sec=bridge_timeout)
+        tuning_res = llm.tune_design_iteration(spec, sim_res)
+        if tuning_res and isinstance(tuning_res, dict):
+            diag = tuning_res.get("diagnosis", "N/A")
+            tuning_text = (
+                f"[bold]Diagnosis:[/bold] {diag}\n"
+                f"[bold]Expected Improvements:[/bold] {tuning_res.get('expected_improvements', 'N/A')}\n"
+                f"[bold]Tuned Recommendations:[/bold] " + json.dumps(tuning_res.get("tuned_components", {}), indent=2)
+            )
+            console.print(Panel(tuning_text, title="[cyan]⚡ AI Optimization Advice[/cyan]", border_style="yellow"))
+
         console.print("[cyan]Opening parameter adjustment...[/cyan]")
         new_f0 = float(Prompt.ask("Adjust Center Frequency (GHz)", default=str(spec.f_0_ghz)))
         new_width = float(Prompt.ask("Adjust PCB Width (mm)", default=str(spec.width_mm)))
         spec.f_0_ghz = new_f0
         spec.width_mm = new_width
         console.print("[green]Re-running pipeline with updated parameters...[/green]\n")
-        run_pipeline(spec, project_root, batch_mode=False)
+        run_pipeline(spec, project_root, batch_mode=False, llm_provider=llm_provider, bridge_timeout=bridge_timeout)
     else:
         task_outputs[10] = "User approved deliverables - no reiterations required."
         console.print(render_dashboard(11, frame_idx, "All tasks completed.", task_outputs))
@@ -399,10 +428,25 @@ def main():
     parser.add_argument("--preset", type=str, choices=["1", "2", "3"], help="Preset number (1: 10dB Attenuator, 2: 2.4GHz Filter, 3: Wilkinson)")
     parser.add_argument("--batch", action="store_true", help="Run non-interactively without prompting")
     parser.add_argument("--output-dir", type=str, default="projects", help="Directory to store generated projects")
+    parser.add_argument("--llm-provider", type=str, default="agent", choices=["agent", "bridge", "gemini", "openai", "anthropic", "analytical"], help="LLM Provider routing (default: 'agent' bridge via Antigravity)")
+    parser.add_argument("--bridge-timeout", type=int, default=30, help="Agent bridge response timeout in seconds")
+    parser.add_argument("--custom-desc", type=str, default=None, help="Custom circuit description for batch mode")
     args = parser.parse_args()
 
-    spec = prompt_user_for_spec(batch_mode=args.batch, preset_choice=args.preset)
-    run_pipeline(spec, project_root=args.output_dir, batch_mode=args.batch)
+    spec = prompt_user_for_spec(
+        batch_mode=args.batch,
+        preset_choice=args.preset,
+        llm_provider=args.llm_provider,
+        bridge_timeout=args.bridge_timeout,
+        custom_desc=args.custom_desc
+    )
+    run_pipeline(
+        spec,
+        project_root=args.output_dir,
+        batch_mode=args.batch,
+        llm_provider=args.llm_provider,
+        bridge_timeout=args.bridge_timeout
+    )
 
 
 if __name__ == "__main__":
