@@ -22,6 +22,9 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 * $\varepsilon_{eff} = \mathbf{2.88}$
 * $v_p = 1.767 \times 10^8\text{ m/s}$, $t_{pd} = 5.66\text{ ps/mm}$
 
+> [!IMPORTANT]
+> **Default Architecture Rule**: Whenever the user does not specify PCB physical properties, the agent must ALWAYS assume standard **2-layer FR4, 1.60 mm board thickness, 1 oz copper, 50Ω CPWG, and SMA connectors** for all RF ports.
+
 ### 1.2 Closed-Form Passive Circuit Synthesis
 * **Symmetric Pi-Attenuators**:
   $$K = 10^{\text{Atten}_{\text{dB}} / 20}$$

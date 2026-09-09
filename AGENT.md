@@ -16,7 +16,24 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 4. **Deliverable Delivery**: You present the complete engineering package (schematic, 3D renders, performance table, BOM, and production Gerbers) directly to the user in chat.
 5. **Parametric Tuning**: If simulation indicates parasitics or frequency shifts, you adjust parameters and reiterate until performance converges.
 
+### 1.1 Default Hardware & PCB Architecture Baseline
+> [!IMPORTANT]
+> **If the user does not describe the PCB in detail, ALWAYS assume the standard baseline:**
+> * **Substrate Material**: Standard **FR4** ($\varepsilon_r = 4.40$, $\tan\delta = 0.02$).
+> * **Layer Stackup**: **2-Layer PCB** (`F.Cu` top RF path with coplanar ground pour, `B.Cu` solid reference ground plane).
+> * **Substrate Thickness**: **1.60 mm** ($h = 1.60\text{ mm}$).
+> * **Copper Thickness**: **1 oz** ($35\,\mu\text{m}$ / $0.035\text{ mm}$).
+> * **RF Connectors**: **Standard 50Ω SMA Coaxial Connectors** (`SMA_IN` at port 1, `SMA_OUT` at port 2).
+> * **Transmission Line**: **50.0Ω Grounded Coplanar Waveguide (CPWG)**:
+>   - Signal trace width: $w = 1.87\text{ mm}$
+>   - Ground clearance gap: $s = 0.40\text{ mm}$
+>   - Effective dielectric constant: $\varepsilon_{eff} = 2.88$
+>   - Phase velocity: $v_p = 1.767 \times 10^8\text{ m/s}$ ($t_{pd} = 5.66\text{ ps/mm}$)
+> * **SMD Passives**: **0805 Imperial / 2012 Metric** footprint packages with $45^\circ$ neckdown tapers ($1.87\text{ mm} \rightarrow 0.80\text{ mm}$).
+> * **Shielding**: Continuous ground via fencing rows ($0.4\text{ mm}$ drill, $0.8\text{ mm}$ pad) and perimeter stitching.
+
 ---
+
 
 ## 2. Toolchain & Runtime Environment
 

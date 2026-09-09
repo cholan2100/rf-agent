@@ -9,7 +9,15 @@ description: >-
 
 # Autonomous RF Hardware Engineer Skill
 
-Use this skill to autonomously design, synthesize, route, simulate, render, and package production-ready RF PCBs without requiring the user to run manual procedural scripts.
+## Default Hardware Baseline (Standard Assumptions)
+> [!IMPORTANT]
+> **If the user does not describe the PCB in detail, ALWAYS assume:**
+> * **Material**: Standard **FR4** ($\varepsilon_r = 4.40$, $\tan\delta = 0.02$).
+> * **Layers**: **2-Layer PCB** (`F.Cu` top RF path + ground pour, `B.Cu` solid reference ground plane).
+> * **Thickness**: **1.60 mm** ($h = 1.60\text{ mm}$).
+> * **Copper Weight**: **1 oz** ($35\,\mu\text{m}$ / $0.035\text{ mm}$).
+> * **Connectors**: **Standard 50Ω SMA Coaxial Connectors** (`SMA_IN` at port 1, `SMA_OUT` at port 2).
+> * **Transmission Line**: **50.0Ω Grounded Coplanar Waveguide (CPWG)** ($w = 1.87\text{ mm}$, $s = 0.40\text{ mm}$, $\varepsilon_{eff} = 2.88$, $v_p = 1.767 \times 10^8\text{ m/s}$).
 
 ## Human-in-the-Loop Review Protocol (Mandatory)
 
