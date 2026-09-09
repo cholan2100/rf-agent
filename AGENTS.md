@@ -283,18 +283,24 @@ To maintain total transparency, stability, and engineering rigor, the agent foll
 > [!IMPORTANT]
 > **MANDATORY POPUP CONFIRMATION VIA `ask_question`**:
 > User review confirmations between stages MUST be triggered as **interactive popup modals** using `ask_question`.
-> To guarantee that visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.) are always 100% visible in the chat alongside the popup dialog:
-> 1. **Never emit an empty message body**: When calling `ask_question`, you MUST write out the full visible chat message containing the embedded image, deliverables table, and engineering verification.
-> 2. **Single Native Markdown Image Display**: Embed each image ONCE using standard Markdown syntax directly in the chat response:
+> To guarantee that visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.) are always 100% visible in the chat alongside the popup dialog, you MUST follow this exact 2-Turn sequence:
+> 
+> **TURN 1: Copy Image to Artifacts Directory**
+> You MUST first use the `run_command` tool to copy the generated `.png` asset from the project directory to your conversation artifacts directory. The chat UI strictly restricts image rendering to the artifacts folder.
+> *Example*: `Copy-Item "projects\<name>\renders\schematic_zoomed.png" -Destination "<appDataDir>\brain\<conversation-id>\"`
+> *(Wait for the command to succeed before proceeding to Turn 2).*
+>
+> **TURN 2: Display Image & Call `ask_question`**
+> In the very next turn, you MUST do BOTH of the following simultaneously:
+> 1. **Emit Visible Markdown Text**: Write out the full visible chat message containing the deliverables table, 0 DRC violations check, and the embedded image using standard Markdown syntax.
 >    ```markdown
->    ![<Description>](file:///<appDataDir>/brain/<conversation-id>/<render_name>.png)
+>    Here is the completed schematic:
+>    ![Schematic](file:///<appDataDir>/brain/<conversation-id>/schematic_zoomed.png)
 >    ```
->    *(Ensure Windows backslashes are converted to forward slashes in the `file:///` URI).*
-> 3. **Copy to Artifacts Directory**: Always copy generated `.png` assets from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using PowerShell `Copy-Item` before embedding.
-> 4. **Display Deliverables Table & DRC Check**: List file paths, sizes (KB), and 0 DRC violations.
-> 5. **Invoke `ask_question` in the SAME Turn**: Provide the 3 selectable options in the modal dialog:
->    - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
->    - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+>    *(CRITICAL: Ensure Windows backslashes are converted to forward slashes in the `file:///` URI, and never put the markdown image inside the `ask_question` JSON arguments!)*
+> 2. **Invoke `ask_question` Tool**: In the exact same turn as your visible text, call the `ask_question` tool with the 3 selectable options:
+>    - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.`
+>    - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.`
 >    - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
 
 ### Stage-by-Stage Review & Context-Aware Prompt Mapping
