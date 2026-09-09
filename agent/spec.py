@@ -336,7 +336,7 @@ def parse_custom_circuit(
         c_f = 1.0 / (omega0**2 * l_h)
         c_pf = round(c_f * 1e12, 1)
 
-        f0_mhz_str = f"{f0 * 1000.0:.0f}" if f0 < 1.0 else f"{f0:.2f}GHz"
+        f0_mhz_str = f"{f0 * 1000.0:.0f}MHz" if f0 < 1.0 else f"{f0:.2f}GHz"
 
         return CircuitSpec(
             name=f"bpf_{f0_mhz_str.lower().replace('.', '_')}_lc",

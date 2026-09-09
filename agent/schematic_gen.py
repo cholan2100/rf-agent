@@ -344,7 +344,7 @@ def _generate_bandpass_lc_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) 
 	(wire (pts (xy 139.7 81.28) (xy 139.7 86.36)))
 	(label "RF_IN" (at 45.72 73.66 0))
 	(label "RF_OUT" (at 125.0 73.66 0))
-	(text "100 MHz LC Tank Bandpass Filter\\nf0 = {spec.f_0_ghz*1000.0:.0f} MHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 110.0 0) (effects (font (size 2.0 2.0))))
+	(text "{spec.title}\\nf0 = {spec.f_0_ghz*1000.0:.0f} MHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 110.0 0) (effects (font (size 2.0 2.0))))
 )
 """
 

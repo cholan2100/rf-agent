@@ -171,13 +171,14 @@ Compiles `PERFORMANCE_REPORT.md` containing:
 After executing each task in the workflow, the agent executes an interactive review gate before continuing:
 
 ### Stage Handover Protocol
-1. **Deliverables Summary**: Itemize output files with paths, sizes, and engineering parameters.
-2. **Visual Inspection**: Display relevant graphics (zoomed schematic crop, 3D raytraces, S-parameter curves, Smith chart, etc.).
+1. **Direct Inline Chat Image Rendering**: Copy generated `.png` assets to the conversation artifacts directory and embed them directly into the chat response using `![<Description>](<artifact_path>)` so they render inline in the chat. Never merely link or state files are on disk.
+2. **Deliverables Summary**: Itemize output files with relative paths, sizes, and engineering parameters.
 3. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
 4. **Interactive Choice (`ask_question`)**:
    - `(Recommended) I am satisfied with the output of this task. Proceed to the next task.`
    - `I'd like to provide suggestions or adjust parameters to reiterate this task.`
    - `Stop the process here so I can review the deliverables and think through next steps.`
+
 
 ### Stage Review Matrix
 

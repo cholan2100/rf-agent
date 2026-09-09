@@ -15,14 +15,16 @@ Use this skill to autonomously design, synthesize, route, simulate, render, and 
 
 When executing an RF design project, **never execute stages in a silent uninterrupted batch unless explicitly requested**.
 After completing **each task**, you must:
-1. **Show Deliverables Table**: Display the paths, file sizes, and status of generated files.
-2. **Display Visual Artifacts**: Present the relevant graphical renders (zoomed schematic crop, 3D raytraces, S-parameter curves, Smith chart, etc.) for visual inspection.
-3. **Interactive Confirmation via `ask_question`**: Prompt the user with exactly three choices:
+1. **Direct Inline Chat Image Rendering**: If the task generated visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.), immediately copy the `.png` files to the artifact directory `<appDataDir>\brain\<conversation-id>\` and embed them directly into your chat response using `![<Description>](<artifact_path>)`. Never just say the renders are stored—render them directly in chat!
+2. **Show Deliverables Table**: Display the relative paths, file sizes, and status of generated files.
+3. **Engineering Integrity Check**: Verify DRC violations (0 errors, 0 warnings) and electrical specifications.
+4. **Interactive Confirmation via `ask_question`**: Prompt the user with exactly three choices:
    - `(Recommended) I am satisfied with the output of this task. Proceed to the next task.`
    - `I'd like to provide suggestions or adjust parameters to reiterate this task.`
    - `Stop the process here so I can review the deliverables and think through next steps.`
 
 If the user requests reiteration, update `projects/<name>/spec.json` and re-run the specific stage using `--stages <stage>`.
+
 
 ## Execution Commands
 
