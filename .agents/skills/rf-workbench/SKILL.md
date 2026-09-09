@@ -9,6 +9,47 @@ description: >-
 
 # Autonomous RF Hardware Engineer Skill
 
+## Toolchain Architecture: Dependency on `rf-suite`
+`rf-workbench` contains the AI design intellect, circuit specifications (`spec.py`), and layout synthesis algorithms. All heavy EDA/CAD and electromagnetic simulation solvers reside in the linked container environment `rf-suite` (`./rf-suite` Git submodule, pointing to `cholan2100/rf-suite`).
+
+Autonomous agents invoke all solvers and Python engines headlessly through the standard cross-platform launchers in `rf-suite/bin/`:
+- **Windows**: `rf-suite\bin\rf-run.bat <command>`
+- **Linux / WSL**: `./rf-suite/bin/rf-run <command>`
+
+---
+
+## Turn 0: Mandatory Docker Readiness & Auto-Build Protocol
+> [!CRITICAL]
+> **BEFORE LAUNCHING ANY DESIGN WORKFLOW OR STAGE:**
+> The AI Agent MUST test whether the `rf-suite` Docker environment is ready. If not, the Agent MUST build it first while keeping the user informed at every step.
+
+1. **Test Docker Readiness**:
+   Check if the `rf-suite:latest` Docker image is present:
+   ```bash
+   # Windows:
+   docker images -q rf-suite:latest
+   # (Or via WSL: wsl -d Debian bash -c "docker images -q rf-suite:latest")
+
+   # Linux / WSL:
+   docker images -q rf-suite:latest
+   ```
+2. **If Image is Missing (Not Ready) -> Auto-Build**:
+   - **INFORM THE USER IMMEDIATELY IN CHAT**:
+     > *"The `rf-suite` Docker toolchain environment is not built yet. Building the Docker image now via `docker compose build` in `rf-suite/`... This will compile and configure KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python dependencies. I will keep you updated as the build progresses."*
+   - Trigger the build:
+     ```bash
+     # Windows:
+     cd rf-suite && docker compose build
+     # Linux / WSL:
+     cd rf-suite && docker compose build
+     ```
+   - Notify user on completion:
+     > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding immediately to Task 1 (Schematic Synthesis)..."*
+3. **If Image is Ready**:
+   Proceed directly to Task 1 without delay.
+
+---
+
 ## Default Hardware Baseline (Standard Assumptions)
 > [!IMPORTANT]
 > **If the user does not describe the PCB in detail, ALWAYS assume:**
@@ -29,20 +70,25 @@ description: >-
 >     - **Compact Board**: Use a compact form factor ($20.0\text{ mm} \times 16.0\text{ mm}$) with solid ground pour and via stitching across the unused area.
 >     - **1-Port Metrics**: Evaluate Return Loss ($S_{11}$) and VSWR. Do NOT compute, plot, or report $S_{21}$ / $S_{22}$.
 
+---
+
 ## Immediate Execution Policy (Zero Codebase Browsing Rule)
 > [!CRITICAL]
 > **WHEN A USER ASSIGNS A CIRCUIT DESIGN OR PCB CREATION WORKFLOW:**
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard execution command:
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard launcher:
 >    ```bash
->    # If running via the linked RF container environment (rf-suite):
->    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
->    # Or directly in a Python RF runtime environment:
->    python3 -m agent.workflow --desc '<circuit description>' --stages schematic
+>    # Windows:
+>    rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+>
+>    # Linux / WSL:
+>    ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
 >    ```
 >    The `agent.workflow` engine automatically parses the description, generates the mathematical circuit specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
+
+---
 
 ## Interactive Popup Review Protocol (`ask_question`)
 > [!IMPORTANT]
@@ -64,58 +110,83 @@ description: >-
 
 If the user requests reiteration, update `projects/<name>/spec.json` and re-run the specific stage using `--stages <stage>`.
 
-
-
+---
 
 ## Execution Commands
 
-You can execute the workflow stages either directly in a Python RF runtime environment (`python3 -m agent.workflow [args]`) or via the linked RF container environment (`rf-suite`):
-
 ### 1. Stage-by-Stage Interactive Execution (Standard Flow)
 Run each stage individually, reviewing deliverables with the user between stages:
+
+#### Windows
+```cmd
+:: Task 1: Schematic & Zoomed Crop
+rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+
+:: Task 2: PCB Layout & DRC
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
+
+:: Task 3: 3D Raytrace Renders
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages render
+
+:: Task 4: FreeCAD & STEP CAD
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages cad
+
+:: Task 5: openEMS EM Simulation -> Touchstone .s1p / .s2p
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages em
+
+:: Task 6: Qucs-S Co-Simulation
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs
+
+:: Task 7: RF Performance Charts
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages charts
+
+:: Task 8: Production Gerber ZIP
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers
+
+:: Task 9: Performance Report & BOM
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages report
+```
+
+#### Linux / WSL
 ```bash
 # Task 1: Schematic & Zoomed Crop
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --desc '<circuit description>' --f0 <freq> --stages schematic"
-# Direct: python3 -m agent.workflow --desc '<circuit description>' --f0 <freq> --stages schematic
+./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
 
 # Task 2: PCB Layout & DRC
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
 
 # Task 3: 3D Raytrace Renders
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render
 
 # Task 4: FreeCAD & STEP CAD
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad
 
-# Task 5: openEMS EM Simulation -> Touchstone .s2p / .s1p
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em
+# Task 5: openEMS EM Simulation -> Touchstone .s1p / .s2p
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em
 
 # Task 6: Qucs-S Co-Simulation
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs
 
 # Task 7: RF Performance Charts
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts
 
 # Task 8: Production Gerber ZIP
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers
 
 # Task 9: Performance Report & BOM
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report"
-# Direct: python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report
 ```
 
 ### 2. Full Batch Pipeline Execution (Unattended)
 ```bash
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --desc '<circuit description>' --f0 <center_freq_ghz> --z0 50"
-# Direct: python3 -m agent.workflow --desc '<circuit description>' --f0 <center_freq_ghz> --z0 50
+# Windows:
+rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --f0 <center_freq_ghz> --z0 50
+
+# Linux / WSL:
+./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --f0 <center_freq_ghz> --z0 50
 ```
+
+---
 
 ## Quality Assurance Checklist
 1. **DRC Validation**: Verify `projects/<name>/<name>_drc.json` contains `0 violations` and `0 warnings`.
@@ -125,7 +196,7 @@ wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-sui
    - `<name>_drc.json` (Task 2)
    - `renders/iso_render.png`, `renders/top_render.png`, `renders/bottom_render.png` (Task 3)
    - `cad/<name>.step`, `cad/<name>.FCStd` (Task 4)
-   - `simulation/<name>.s2p` (Task 5)
+   - `simulation/<name>.s1p` / `simulation/<name>.s2p` (Task 5)
    - `simulation/<name>.dat` (Task 6)
    - `charts/sparam_plot.png`, `charts/smith_chart.png` (Task 7)
    - `gerbers_<name>.zip` (Task 8)

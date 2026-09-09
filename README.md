@@ -6,8 +6,72 @@
 [![Qucs-S](https://img.shields.io/badge/Qucs--S-24.4.1-green)](https://ra3xdh.github.io/)
 [![ngspice](https://img.shields.io/badge/ngspice-44.2-blue)](https://ngspice.sourceforge.io/)
 [![Python](https://img.shields.io/badge/Python-3.13.5-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![rf-suite](https://img.shields.io/badge/Toolchain-rf--suite-orange)](https://github.com/cholan2100/rf-suite)
 
 An autonomous AI RF/Microwave hardware engineering engine and PCB design suite. `rf-workbench` enables AI coding agents and human engineers to autonomously synthesize schematics, route controlled-impedance coplanar waveguides, perform headless DRC verification, execute 3D electromagnetic FDTD simulations, and generate production-ready Gerber archives and raytraced 3D visualizations.
+
+---
+
+## Toolchain Architecture: Dependency on `rf-suite`
+
+`rf-workbench` is structured as a decoupled, two-tier architecture separating **AI Agent Design Intellect** from the **Heavy EDA & Solver Toolchain**:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        rf-workbench (This Repo)                        │
+│                   AI Agent Intellect & Workflow Core                   │
+│  - Circuit Spec Synthesis (spec.py) & Passive Math (Pi, Tank, BPF, SOLT)│
+│  - Programmatic KiCad 10 Schematic & Layout Routing (agent/pcb_gen.py) │
+│  - Controlled-Impedance CPWG Math, Tapers, & Via Fencing Synthesis     │
+│  - Automated Headless 9-Stage Pipeline Orchestrator (agent/workflow.py) │
+│  - Interactive Human-in-the-Loop Review Protocols & Popups             │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ invokes via rf-suite/bin launchers
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                        rf-suite (Linked Submodule)                     │
+│               Containerized Multi-Physics Engineering Stack            │
+│  - KiCad 10.0.4: pcbnew Python C++ bindings, kicad-cli, 3D Raytracer   │
+│  - FreeCAD 1.0.0: FreeCADCmd, Microwave Workbench, STEP Exporter      │
+│  - openEMS v0.37.0-rc2: 3D FDTD Full-Wave EM Solver & CSXCAD API       │
+│  - Qucs-S 24.4.1 & qucsator-rf 1.0.3: Linear S-Parameter Co-Simulation │
+│  - ngspice 44.2: Non-linear SPICE DC bias & transient sweeps           │
+│  - RF Python Stack: scikit-rf, numpy, scipy, matplotlib, cairosvg      │
+│  - X11 / noVNC Web Desktop: Interactive visual GUI on port 6080       │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+The underlying toolchain is linked as a Git submodule at `./rf-suite` pointing to [`cholan2100/rf-suite`](https://github.com/cholan2100/rf-suite). This guarantees that neither developers nor autonomous agents need to manually compile or install gigabytes of complex C++ EDA tools on the host system.
+
+---
+
+## Docker Readiness & Auto-Build Protocol for Agents
+
+Autonomous agents and automated CI runners must adhere to the **Turn 0 Readiness Protocol**:
+
+1. **Test Docker Readiness**:
+   Before launching any design stage (e.g. Task 1 Schematic), the agent tests whether the `rf-suite` Docker image is available:
+   ```bash
+   # Check if rf-suite image exists:
+   docker images -q rf-suite:latest
+   ```
+   *(On Windows without Docker in native PATH, the agent checks via `wsl -d Debian bash -c "docker images -q rf-suite:latest"` or tests `rf-suite\bin\rf-run.bat python --version`).*
+
+2. **If NOT Ready (Image Missing or Needs Build)**:
+   - The agent **informs the user in chat immediately**:
+     > *"The `rf-suite` Docker environment is not built yet. Building the Docker image now via `rf-suite/docker-compose.yml`... This builds the container with KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python toolchain. I will keep you updated on progress."*
+   - The agent triggers the build:
+     ```bash
+     # Windows:
+     cd rf-suite && docker compose build
+     # Linux / WSL:
+     cd rf-suite && docker compose build
+     ```
+   - When the build finishes, the agent notifies the user:
+     > *"The `rf-suite` Docker environment has been built and verified! Proceeding to Task 1 (Schematic Synthesis)..."*
+
+3. **If Ready**:
+   The agent proceeds directly into circuit synthesis.
 
 ---
 
@@ -23,29 +87,42 @@ An autonomous AI RF/Microwave hardware engineering engine and PCB design suite. 
 
 ---
 
-## Tool Suite & Version Matrix
+## Quick Start
 
-| Category | Tool / Package | Version | Scope & Capabilities |
-| :--- | :--- | :--- | :--- |
-| **PCB & EDA** | **KiCad 10** | 10.0.4 | Schematic capture, headless DRC verification, Gerber/drill generation |
-| | **KiCad Python (`pcbnew`)** | 10.0.4 | Programmatic board synthesis, trace routing, via stitching, copper fills |
-| | **KiCad 3D Raytracer** | 10.0.4 | Headless photorealistic raytraced 3D board rendering (`kicad-cli pcb render`) |
-| | **RF-tools-KiCAD** | Latest | Automated via fence stitching, track rounding, solder mask expansion |
-| **Electromagnetics** | **openEMS & CSXCAD** | v0.37.0-rc2 | 3D full-wave FDTD solver, multi-port S-parameter matrix extraction |
-| | **AppCSXCAD** | v0.37.0 | Interactive 3D FDTD mesh, bounding box, and excitation port visualizer |
-| **Circuit Simulation**| **Qucs-S** | 24.4.1 | Schematic capture, Touchstone `.sNp` co-simulation, AC/DC analysis |
-| | **qucsator-rf** | 1.0.3 | High-speed RF solver fork, stability factors ($K, \mu$), noise parameters |
-| | **ngspice** | 44.2 | SPICE engine for non-linear transistor DC bias and transient sweeps |
-| **3D Mechanical CAD**| **FreeCAD** | 1.0.0 | Parametric CAD modeling, headless STEP/STL generation, clearance audits |
-| | **FreeCAD-Microwave** | Master | Transmission line calculators (CPWG, microstrip), FreeCAD-to-openEMS export |
-| **RF & Math Stack** | **scikit-rf (`skrf`)** | >=1.2 | S-parameter matrix operations, de-embedding, Smith charts, Touchstone I/O |
-| | **Scientific Python** | `numpy`, `scipy`, `matplotlib`, `pandas` | Numerical computation, optimization, publication-quality RF plotting |
-| | **Vector & Raster** | `pypdfium2`, `pillow`, `cairosvg` | High-DPI rasterization of schematic and layout artwork |
+### 1. Clone & Initialize Submodule
+```bash
+git clone --recurse-submodules https://github.com/cholan2100/rf-workbench.git
+cd rf-workbench
+
+# If already cloned without submodules:
+git submodule update --init --recursive
+```
+
+### 2. Verify Toolchain Environment
+Run the 14-point diagnostic suite using the `rf-suite` launcher:
+```bash
+# On Windows:
+rf-suite\bin\rf-run.bat python tests/verify_environment.py
+
+# On Linux / WSL:
+./rf-suite/bin/rf-run python3 tests/verify_environment.py
+```
+
+### 3. Run Reference Example (Simple LED PCB)
+Synthesize, verify DRC, generate 31 production Gerbers, STEP model, and 3D raytrace:
+```bash
+# On Windows:
+rf-suite\bin\rf-run.bat python examples/simple_led/run_pipeline.py
+
+# On Linux / WSL:
+./rf-suite/bin/rf-run python3 examples/simple_led/run_pipeline.py
+```
+
+<p align="center">
+  <img src="examples/simple_led/renders/iso_render.png" alt="Simple LED PCB 3D Raytrace Render" width="700">
+</p>
 
 ---
-
-
-## Quick Start
 
 ## Workflow Architecture
 
@@ -100,84 +177,93 @@ The automated pipeline consists of 9 sequential, modular stages:
 
 ---
 
-## Runtime Environments
-
-`rf-workbench` can be executed in two environments:
-
-1. **Direct Python Runtime**: Any environment (Linux, WSL, macOS, or Windows) with Python 3.10+ and the required EDA/solver packages installed:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. **Linked RF Suite Container (`./rf-suite`)**: The containerized engineering environment is linked as a Git submodule at `./rf-suite` (from [`cholan2100/rf-suite`](https://github.com/cholan2100/rf-suite)). It provides pre-compiled KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and X11/noVNC desktop:
-   ```bash
-   # Initialize submodule if cloning for the first time:
-   git submodule update --init --recursive
-
-   # Execute workflow headlessly inside the linked container:
-   wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow [arguments]"
-   ```
-
----
-
 ## CLI Usage
+
+All workflow stages can be invoked using the cross-platform launchers in `rf-suite/bin/`:
 
 ### Stage-by-Stage Modular Execution
 Run individual stages to review deliverables interactively between steps:
+
+#### Windows (PowerShell / CMD)
+```cmd
+:: Task 1: Schematic Synthesis & Zoomed Crop
+rf-suite\bin\rf-run.bat python -m agent.workflow --desc "50 ohm Load circuit for calibration" --stages schematic
+
+:: Task 2: Controlled Impedance PCB Layout & DRC
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages pcb
+
+:: Task 3: 3D Raytracing (Iso, Top, Bottom)
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages render
+
+:: Task 4: Mechanical CAD & 3D STEP Assembly
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages cad
+
+:: Task 5: openEMS EM Simulation -> Touchstone .s1p / .s2p
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages em
+
+:: Task 6: Qucs-S Co-Simulation
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages qucs
+
+:: Task 7: RF Performance Charts
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages charts
+
+:: Task 8: Production Gerber ZIP
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages gerbers
+
+:: Task 9: Performance Documentation & BOM
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages report
+```
+
+#### Linux / WSL
 ```bash
 # Task 1: Schematic Synthesis & Zoomed Crop
-python3 -m agent.workflow --desc "50 ohm Load circuit for calibration" --stages schematic
+./rf-suite/bin/rf-run python3 -m agent.workflow --desc "50 ohm Load circuit for calibration" --stages schematic
 
 # Task 2: Controlled Impedance PCB Layout & DRC
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages pcb
 
 # Task 3: 3D Raytracing (Iso, Top, Bottom)
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages render
 
 # Task 4: Mechanical CAD & 3D STEP Assembly
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages cad
 
-# Task 5: openEMS EM Simulation -> Touchstone .s2p / .s1p
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em
+# Task 5: openEMS EM Simulation -> Touchstone .s1p / .s2p
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages em
 
 # Task 6: Qucs-S Co-Simulation
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages qucs
 
 # Task 7: RF Performance Charts
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages charts
 
 # Task 8: Production Gerber ZIP
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages gerbers
 
 # Task 9: Performance Documentation & BOM
-python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/calibration_load_50ohm/spec.json --stages report
 ```
 
 ### Full Unattended Batch Execution
 ```bash
 # From natural language description
-python3 -m agent.workflow --desc "100 MHz LC Tank Bandpass Filter" --f0 0.1 --z0 50
+rf-suite\bin\rf-run.bat python -m agent.workflow --desc "100 MHz LC Tank Bandpass Filter" --f0 0.1 --z0 50
 
 # From existing spec.json
-python3 -m agent.workflow --spec-file projects/<name>/spec.json
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/bpf_100_lc/spec.json
 
 # Built-in presets (1: 10dB Attenuator, 2: 2.4GHz Filter, 3: Wilkinson)
-python3 -m agent.workflow --preset 1
+rf-suite\bin\rf-run.bat python -m agent.workflow --preset 1
 ```
 
 ---
 
-## Reference Example: Simple LED PCB
+## Interactive Web Desktop (noVNC)
 
-The repository includes an end-to-end automated manufacturing pipeline in `examples/simple_led/` demonstrating how hardware can be synthesized, verified, and exported headlessly.
-
-<p align="center">
-  <img src="examples/simple_led/renders/iso_render.png" alt="Simple LED PCB 3D Raytrace Render" width="700">
-</p>
-
-### Running the Example
-```bash
-python examples/simple_led/run_pipeline.py
-```
+For visual inspection of KiCad schematics/PCBs, FreeCAD 3D models, or AppCSXCAD meshes:
+- **Windows**: Run `rf-suite\bin\rf-gui.bat`
+- **Linux/WSL**: Run `./rf-suite/bin/rf-gui`
+- Open browser at **`http://localhost:6080/vnc.html`** (default password: `rfworkbench` if prompted).
 
 ---
 
@@ -191,12 +277,12 @@ rf-workbench/
 │   ├── spec.py                     # Circuit spec models, presets, RF math
 │   ├── schematic_gen.py            # KiCad 10 schematic synthesis & SVG export
 │   ├── pcb_gen.py                  # CPWG layout, 45° tapers, zone fill & DRC
-│   ├── render_gen.py               # Headless raytraced 3D renders (Iso, Top, Bottom)
-│   ├── cad_gen.py                  # FreeCAD parametric modeling & STEP assembly
+│   ├── renderer.py                 # Headless raytraced 3D renders (Iso, Top, Bottom)
+│   ├── freecad_gen.py              # FreeCAD parametric modeling & STEP assembly
 │   ├── em_solver.py                # openEMS FDTD solver & Touchstone .sNp export
-│   ├── qucs_runner.py              # Qucsator linear circuit co-simulation
+│   ├── qucs_sim.py                 # Qucsator linear circuit co-simulation
 │   ├── chart_gen.py                # S-parameters & Smith chart plotting
-│   ├── gerber_gen.py               # RS-274X Gerber & NC drill ZIP packager
+│   ├── gerber_pack.py              # RS-274X Gerber & NC drill ZIP packager
 │   └── report_gen.py               # PERFORMANCE_REPORT.md & BOM generator
 ├── .agents/skills/rf-workbench/    # AI Agent skill definition (SKILL.md)
 ├── projects/                       # Generated design projects & deliverables
@@ -206,7 +292,11 @@ rf-workbench/
 │   ├── test_workflow.py            # Headless workflow engine tests
 │   └── verify_environment.py       # 14-point EDA/solver diagnostic suite
 ├── rf-suite/                       # Linked Git submodule: EDA/solver container (cholan2100/rf-suite)
+│   ├── bin/                        # Cross-platform launchers (rf-run, rf-bash, rf-gui)
+│   ├── docker-compose.yml          # Container configuration
+│   └── Dockerfile                  # Container toolchain definition
 ├── AGENT.md                        # Autonomous agent operating handbook
+├── AGENTS.md                       # Handbook alias for agent loaders
 ├── SKILLS.md                       # RF engineering skills catalog
 ├── .gitmodules                     # Git submodule configuration
 ├── requirements.txt                # Python RF & scientific dependencies
@@ -228,4 +318,3 @@ Every design synthesized by `rf-workbench` is verified against strict RF enginee
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-

@@ -2,18 +2,65 @@
 
 This document serves as the operational reference manual for the specialized skills possessed by the **Autonomous RF Hardware Engineer Agent**.
 
+---
+
+## Toolchain Architecture: Dependency on `rf-suite`
+
+The hardware design intellect and workflow orchestration reside in `rf-workbench`. All heavy EDA/CAD and electromagnetic simulation solvers reside in the linked container environment `rf-suite` (`./rf-suite` Git submodule, pointing to `cholan2100/rf-suite`).
+
+Autonomous agents invoke all solvers and Python engines headlessly through the standard launchers in `rf-suite/bin/`:
+- **Windows**: `rf-suite\bin\rf-run.bat <command>`
+- **Linux / WSL**: `./rf-suite/bin/rf-run <command>`
+
+---
+
+## Turn 0: Mandatory Docker Readiness & Auto-Build Protocol
+
 > [!CRITICAL]
-> **Immediate Execution Policy (Zero Codebase Browsing Rule)**:
-> When assigned a circuit design or PCB creation workflow:
+> **BEFORE LAUNCHING ANY DESIGN WORKFLOW OR STAGE:**
+> The AI Agent MUST test whether the `rf-suite` Docker environment is ready. If not, the Agent MUST build it first while keeping the user informed at every step.
+
+1. **Test Docker Readiness**:
+   Check if the `rf-suite:latest` Docker image is present:
+   ```bash
+   # On Windows:
+   docker images -q rf-suite:latest
+   # Or via WSL: wsl -d Debian bash -c "docker images -q rf-suite:latest"
+
+   # On Linux / WSL:
+   docker images -q rf-suite:latest
+   ```
+2. **If Image is Missing (Not Ready) -> Auto-Build**:
+   - **INFORM THE USER IMMEDIATELY IN CHAT**:
+     > *"The `rf-suite` Docker toolchain environment is not built yet. Building the Docker image now via `docker compose build` in `rf-suite/`... This will compile and configure KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python dependencies. I will keep you updated as the build progresses."*
+   - Trigger the build:
+     ```bash
+     # Windows:
+     cd rf-suite && docker compose build
+     # Linux / WSL:
+     cd rf-suite && docker compose build
+     ```
+   - Notify on completion:
+     > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding immediately to Task 1 (Schematic Synthesis)..."*
+3. **If Image is Ready**:
+   Proceed directly to Task 1 without delay.
+
+---
+
+## Immediate Execution Policy (Zero Codebase Browsing Rule)
+
+> [!CRITICAL]
+> **WHEN ASSIGNED A CIRCUIT DESIGN OR PCB CREATION WORKFLOW:**
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO TASK 1 ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard execution command:
+> 4. **JUMP STRAIGHT INTO TASK 1 ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard launcher:
 >    ```bash
->    # If running via the linked RF container environment (rf-suite):
->    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
->    # Or directly in a Python RF runtime environment:
->    python3 -m agent.workflow --desc '<circuit description>' --stages schematic
+>    # Windows:
+>    rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+>
+>    # Linux / WSL:
+>    ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
 >    ```
 
 ---
@@ -75,9 +122,9 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 ## Skill 3: Controlled Impedance PCB Layout with `pcbnew`
 
 ### 3.1 Board Physical Architecture
-* Board dimensions: Typically $35\text{ mm} \times 20\text{ mm}$ with $2.0\text{ mm}$ corner fillet chamfers on `Edge.Cuts`.
+* Board dimensions: Typically $35\text{ mm} \times 20\text{ mm}$ with $2.0\text{ mm}$ corner fillet chamfers on `Edge.Cuts` (compact $20\text{ mm} \times 16\text{ mm}$ for 1-port circuits).
 * Collinear horizontal RF signal path along $y = H/2$.
-* Connectors placed at board edges: J1 at $x = 4.5\text{ mm}$, J2 at $x = W - 4.5\text{ mm}$.
+* Connectors placed at board edges: J1 at $x = 4.5\text{ mm}$, J2 at $x = W - 4.5\text{ mm}$ (omit J2 for 1-port circuits).
 * M2 mounting holes placed at corners with $3.0\text{ mm}$ inset.
 
 ### 3.2 RF Trace Routing & Pad Transition Tapers
@@ -92,10 +139,7 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 
 ### 3.4 Zone Filling & Headless DRC Validation
 * Dual copper pours: Top ground pour on `F.Cu` with local clearance $s = 0.40\text{ mm}$; solid ground plane on `B.Cu`.
-* Zone filling and DRC validation are executed headlessly in one atomic step:
-  ```bash
-  kicad-cli pcb drc --refill-zones --save-board --format json -o <drc.json> <board.kicad_pcb>
-  ```
+* Zone filling and DRC validation are executed headlessly via `kicad-cli pcb drc --refill-zones --save-board --format json -o <drc.json> <board.kicad_pcb>`.
 * Ensures **0 DRC violations** and **0 DRC warnings**.
 
 ---
@@ -103,25 +147,16 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 ## Skill 4: High-Fidelity 3D Raytraced Hardware Rendering
 
 Executes photorealistic raytracing via `kicad-cli pcb render`:
-```bash
-# Isometric 3D view
-kicad-cli pcb render --view iso --perspective --quality 3 --width 1920 --height 1080 -o iso_render.png <board>
-
-# Top Orthogonal view
-kicad-cli pcb render --view top --perspective off --quality 2 --width 1600 --height 900 -o top_render.png <board>
-
-# Bottom Orthogonal view
-kicad-cli pcb render --view bottom --perspective off --quality 2 --width 1600 --height 900 -o bottom_render.png <board>
-```
+* **Isometric 3D View**: High-quality 3D raytrace with floor reflection and component packages.
+* **Top Orthogonal View**: Top copper artwork, silkscreen, and footprint validation.
+* **Bottom Orthogonal View**: Bottom ground plane and via stitching verification.
 
 ---
 
 ## Skill 5: Mechanical CAD Modeling & STEP Assembly
 
 1. Generates 3D OpenCASCADE STEP model using KiCad's headless STEP exporter:
-   ```bash
-   kicad-cli pcb export step --subst-models --no-dnp -o cad/<name>.step <board>
-   ```
+   `kicad-cli pcb export step --subst-models --no-dnp -o cad/<name>.step <board>`
 2. Embeds the STEP geometry into a native FreeCAD project (`cad/<name>.FCStd`) using `FreeCADCmd`.
 
 ---
@@ -129,25 +164,22 @@ kicad-cli pcb render --view bottom --perspective off --quality 2 --width 1600 --
 ## Skill 6: Multi-Port S-Parameter EM Extraction (openEMS)
 
 * Calculates 201-point discrete frequency sweeps across operational band ($f_{\text{min}}$ to $f_{\text{max}}$).
-* Formulates complete 2-port scattering parameters ($S_{11}, S_{21}, S_{12}, S_{22}$) taking into account transmission line dispersion, dielectric loss tangent ($\tan\delta = 0.02$), and 0805 component parasitics.
-* Exports standard Touchstone `.s2p` file conforming to `# GHz S MA R 50`.
-* Validates dataset consistency with `scikit-rf` (`rf.Network(s2p_file)`).
+* Formulates complete scattering parameters ($S_{11}, S_{21}, S_{12}, S_{22}$ for 2-port; $S_{11}$ for 1-port) taking into account transmission line dispersion, dielectric loss tangent ($\tan\delta = 0.02$), and component parasitics.
+* Exports standard Touchstone `.s2p` or `.s1p` file conforming to `# GHz S MA R 50`.
+* Validates dataset consistency with `scikit-rf`.
 
 ---
 
 ## Skill 7: Qucs-S Co-Simulation Netlist & Solver Execution
 
-1. Synthesizes Qucs co-simulation schematic (`simulation/<name>_qucs.sch`) and netlist (`simulation/<name>.net`) with two $50\,\Omega$ power ports (`Pac:P1`, `Pac:P2`) connected to a 2-port linear Touchstone block (`2Port:X1`).
-2. Executes headless solver:
-   ```bash
-   qucsator -i simulation/<name>.net -o simulation/<name>.dat
-   ```
+1. Synthesizes Qucs co-simulation schematic (`simulation/<name>_qucs.sch`) and netlist (`simulation/<name>.net`) with $50\,\Omega$ power ports connected to a linear Touchstone block.
+2. Executes headless solver: `qucsator -i simulation/<name>.net -o simulation/<name>.dat`.
 
 ---
 
 ## Skill 8: Publication-Quality RF Performance Visualization
 
-Generates four high-DPI (300 DPI) Matplotlib engineering plots:
+Generates high-DPI (300 DPI) Matplotlib engineering plots:
 1. **S-Parameter Frequency Response (`charts/sparam_plot.png`)**: Insertion Loss $S_{21}$ and Return Loss $S_{11}$ in dB with specification threshold overlays.
 2. **Smith Chart (`charts/smith_chart.png`)**: Polar reflection coefficient trajectory normalized to $50\,\Omega$.
 3. **Rollett Stability Factor $K$ (`charts/stability_plot.png`)**: Demonstrates unconditional stability ($K > 1.0$) across full band.
@@ -160,7 +192,7 @@ Generates four high-DPI (300 DPI) Matplotlib engineering plots:
 Compiles `PERFORMANCE_REPORT.md` containing:
 * Specification vs Simulated Performance comparison table (with PASS/FAIL flags and margins).
 * Physical Substrate & Transmission Line table (FR4, $h$, $\varepsilon_r$, $w$, $s$, $\varepsilon_{eff}$, $v_p$, $t_{pd}$).
-* Complete Bill of Materials (BOM) with designator, nominal value, 0805 SMD package, and functional role.
+* Complete Bill of Materials (BOM) with designator, nominal value, footprint package, and functional role.
 * Embedded high-resolution graphic links (zoomed schematic, 3D renders, performance plots).
 
 ---
@@ -182,10 +214,10 @@ Compiles `PERFORMANCE_REPORT.md` containing:
 ## Skill 11: Parametric Tuning & Design Optimization Loop
 
 * Reads `projects/<name>/spec.json`.
-* Evaluates simulated insertion loss $S_{21}$ and return loss $S_{11}$ against target specifications.
+* Evaluates simulated return loss $S_{11}$ and insertion loss $S_{21}$ against target specifications.
 * If bandwidth or center frequency deviates, the agent recalculates $L$ or $C$ using closed-form perturbation:
   $$\Delta f_0 \approx -\frac{f_0}{2} \left( \frac{\Delta L}{L} + \frac{\Delta C}{C} \right)$$
-* Re-runs downstream stages (`python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb,render,em,qucs,charts,report`) until performance converges.
+* Re-runs downstream stages via `rf-suite/bin/` launchers until performance converges.
 
 ---
 
@@ -220,10 +252,40 @@ After executing each task in the workflow, the agent executes an interactive pop
 | **2. pcb** | `<name>.kicad_pcb`<br>`<name>_drc.json` | DRC error report | `(Recommended) PCB layout & DRC look good, let's move to 3D raytracing.` | `I'd like to modify board dimensions, clearance, or trace routing for the PCB.` |
 | **3. render** | `renders/iso_render.png`<br>`renders/top_render.png`<br>`renders/bottom_render.png` | 3D Raytraced views | `(Recommended) 3D renders look great, let's generate mechanical CAD & STEP assembly.` | `I'd like to adjust component placement or raytracing angles and re-render.` |
 | **4. cad** | `cad/<name>.step`<br>`cad/<name>.FCStd` | Mechanical geometry check | `(Recommended) Mechanical STEP assembly looks solid, let's run openEMS simulation.` | `I'd like to adjust mounting holes or enclosure constraints for mechanical CAD.` |
-| **5. em** | `simulation/<name>.s2p`<br>`simulation/<name>_openems.m` | Touchstone file summary | `(Recommended) Touchstone S-parameters look good, let's run Qucs co-simulation.` | `I'd like to modify frequency sweep range or substrate parameters for EM simulation.` |
+| **5. em** | `simulation/<name>.s1p` / `.s2p`<br>`simulation/<name>_openems.m` | Touchstone file summary | `(Recommended) Touchstone S-parameters look good, let's run Qucs co-simulation.` | `I'd like to modify frequency sweep range or substrate parameters for EM simulation.` |
 | **6. qucs** | `simulation/<name>.dat`<br>`simulation/<name>.net` | Simulation convergence log | `(Recommended) Qucs simulation converged, let's plot RF performance charts.` | `I'd like to adjust termination impedance or simulation parameters in Qucs.` |
 | **7. charts** | `charts/sparam_plot.png`<br>`charts/smith_chart.png`<br>`charts/stability_plot.png` | 300 DPI Matplotlib charts | `(Recommended) RF charts & response look great, let's package production Gerbers.` | `I'd like to tune circuit parameters or chart scales to optimize RF response.` |
 | **8. gerbers** | `gerbers_<name>.zip` | Gerber file manifest | `(Recommended) Gerbers packaged, let's generate the final performance report & BOM.` | `I'd like to adjust layer stackup or manufacturing rules before finalizing Gerbers.` |
 | **9. report** | `PERFORMANCE_REPORT.md` | Final documentation & BOM | `(Recommended) Performance report & BOM look great, engineering package complete.` | `I'd like to update project specifications, margins, or documentation notes.` |
 
+---
 
+## Execution Commands
+
+### Windows (PowerShell / CMD)
+```cmd
+:: Stage-by-stage execution via rf-run.bat
+rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages render
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages cad
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages em
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages charts
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages report
+```
+
+### Linux / WSL
+```bash
+# Stage-by-stage execution via rf-run
+./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report
+```
