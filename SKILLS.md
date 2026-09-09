@@ -1,4 +1,4 @@
-# RF AI Suite Skills Catalog (SKILLS.md)
+# RF Agent Skills Catalog (SKILLS.md)
 
 This document serves as the operational reference manual for the specialized skills possessed by the **Autonomous RF Hardware Engineer Agent**.
 
@@ -6,7 +6,7 @@ This document serves as the operational reference manual for the specialized ski
 
 ## Toolchain Architecture: Dependency on `rf-suite`
 
-The hardware design intellect and workflow orchestration reside in `rf-workbench`. All heavy EDA/CAD and electromagnetic simulation solvers reside in the linked container environment `rf-suite` (`./rf-suite` Git submodule, pointing to `cholan2100/rf-suite`).
+The hardware design intellect and workflow orchestration reside in `rf-agent`. All heavy EDA/CAD and electromagnetic simulation solvers reside in the linked container environment `rf-suite` (`./rf-suite` Git submodule, pointing to `cholan2100/rf-suite`).
 
 Autonomous agents invoke all solvers and Python engines headlessly through the standard launchers in `rf-suite/bin/`:
 - **Windows**: `rf-suite\bin\rf-run.bat <command>`
@@ -42,7 +42,7 @@ Autonomous agents invoke all solvers and Python engines headlessly through the s
    - Trigger the build:
      ```bash
      # On Windows (Docker in WSL Debian):
-     wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-workbench/rf-suite && docker compose build"
+     wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-agent/rf-suite && docker compose build"
      # Or if native Docker CLI is in Windows PATH:
      cd rf-suite && docker compose build
 

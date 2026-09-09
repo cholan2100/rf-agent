@@ -1,4 +1,4 @@
-# RF Workbench
+# RF Agent
 
 [![KiCad](https://img.shields.io/badge/KiCad-10.0.4-314CB0?logo=kicad&logoColor=white)](https://kicad.org/)
 [![FreeCAD](https://img.shields.io/badge/FreeCAD-1.0.0-CB333B?logo=freecad&logoColor=white)](https://www.freecad.org/)
@@ -8,17 +8,17 @@
 [![Python](https://img.shields.io/badge/Python-3.13.5-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![rf-suite](https://img.shields.io/badge/Toolchain-rf--suite-orange)](https://github.com/cholan2100/rf-suite)
 
-An autonomous AI RF/Microwave hardware engineering engine and PCB design suite. `rf-workbench` enables AI coding agents and human engineers to autonomously synthesize schematics, route controlled-impedance coplanar waveguides, perform headless DRC verification, execute 3D electromagnetic FDTD simulations, and generate production-ready Gerber archives and raytraced 3D visualizations.
+An autonomous AI RF/Microwave hardware engineering engine and PCB design suite. `rf-agent` enables AI coding agents and human engineers to autonomously synthesize schematics, route controlled-impedance coplanar waveguides, perform headless DRC verification, execute 3D electromagnetic FDTD simulations, and generate production-ready Gerber archives and raytraced 3D visualizations.
 
 ---
 
 ## Toolchain Architecture: Dependency on `rf-suite`
 
-`rf-workbench` is structured as a decoupled, two-tier architecture separating **AI Agent Design Intellect** from the **Heavy EDA & Solver Toolchain**:
+`rf-agent` is structured as a decoupled, two-tier architecture separating **AI Agent Design Intellect** from the **Heavy EDA & Solver Toolchain**:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        rf-workbench (This Repo)                        │
+│                          rf-agent (This Repo)                          │
 │                   AI Agent Intellect & Workflow Core                   │
 │  - Circuit Spec Synthesis (spec.py) & Passive Math (Pi, Tank, BPF, SOLT)│
 │  - Programmatic KiCad 10 Schematic & Layout Routing (agent/pcb_gen.py) │
@@ -73,16 +73,16 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Readiness
      > *"The `rf-suite` Docker environment is not built yet. Building the Docker image now via `rf-suite/docker-compose.yml`... This builds the container with KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python toolchain. I will keep you updated on progress."*
    - The agent triggers the build:
      ```bash
-     # On Windows (Docker in WSL Debian):
-     wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-workbench/rf-suite && docker compose build"
-     # Or if native Docker CLI is in Windows PATH:
-     cd rf-suite && docker compose build
+      # On Windows (Docker in WSL Debian):
+      wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-agent/rf-suite && docker compose build"
+      # Or if native Docker CLI is in Windows PATH:
+      cd rf-suite && docker compose build
 
-     # On Linux (Native Docker):
-     cd rf-suite && docker compose build
-     ```
-   - When the build finishes, the agent notifies the user:
-     > *"The `rf-suite` Docker environment has been built and verified! Proceeding to Task 1 (Schematic Synthesis)..."*
+      # On Linux (Native Docker):
+      cd rf-suite && docker compose build
+      ```
+    - When the build finishes, the agent notifies the user:
+      > *"The `rf-suite` Docker environment has been built and verified! Proceeding to Task 1 (Schematic Synthesis)..."*
 
 3. **If Ready**:
    The agent proceeds directly into circuit synthesis.
@@ -105,8 +105,8 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Readiness
 
 ### 1. Clone & Initialize Submodule
 ```bash
-git clone --recurse-submodules https://github.com/cholan2100/rf-workbench.git
-cd rf-workbench
+git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git
+cd rf-agent
 
 # If already cloned without submodules:
 git submodule update --init --recursive
@@ -284,7 +284,7 @@ For visual inspection of KiCad schematics/PCBs, FreeCAD 3D models, or AppCSXCAD 
 ## Project Structure
 
 ```
-rf-workbench/
+rf-agent/
 ├── agent/                          # Autonomous RF workflow engine
 │   ├── __init__.py
 │   ├── workflow.py                 # Master 9-stage orchestrator
@@ -298,7 +298,7 @@ rf-workbench/
 │   ├── chart_gen.py                # S-parameters & Smith chart plotting
 │   ├── gerber_pack.py              # RS-274X Gerber & NC drill ZIP packager
 │   └── report_gen.py               # PERFORMANCE_REPORT.md & BOM generator
-├── .agents/skills/rf-workbench/    # AI Agent skill definition (SKILL.md)
+├── .agents/skills/rf-agent/        # AI Agent skill definition (SKILL.md)
 ├── projects/                       # Generated design projects & deliverables
 ├── examples/                       # Automated reference examples
 │   └── bpf_100mhz_lc/              # Reference 100MHz LC bandpass filter project
@@ -321,7 +321,7 @@ rf-workbench/
 
 ## Quality Assurance & Verification
 
-Every design synthesized by `rf-workbench` is verified against strict RF engineering criteria:
+Every design synthesized by `rf-agent` is verified against strict RF engineering criteria:
 - **0 DRC Violations**: Clearances, track widths, and zone connectivity audited via `kicad-cli`.
 - **50Ω Impedance Matching**: CPWG dimensions verified with coplanar ground clearances ($w = 1.87\text{ mm}$, $s = 0.40\text{ mm}$ on 1.6mm FR4).
 - **Component Sourcing**: Industry-standard high-Q RF SMD components (Samtec SMA edge-mount connectors, Coilcraft/Murata 0603 inductors).

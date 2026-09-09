@@ -1,5 +1,5 @@
 ---
-name: rf-workbench
+name: rf-agent
 description: >-
   Autonomous RF/Microwave hardware engineer and PCB design suite. Use whenever the user asks
   to design, synthesize, simulate, route, render, or fabricate RF circuits, printed circuit boards,
@@ -10,7 +10,7 @@ description: >-
 # Autonomous RF Hardware Engineer Skill
 
 ## Toolchain Architecture: Dependency on `rf-suite`
-`rf-workbench` contains the AI design intellect, circuit specifications (`spec.py`), and layout synthesis algorithms. All heavy EDA/CAD and electromagnetic simulation solvers reside in the linked container environment `rf-suite` (`./rf-suite` Git submodule, pointing to `cholan2100/rf-suite`).
+`rf-agent` contains the AI design intellect, circuit specifications (`spec.py`), and layout synthesis algorithms. All heavy EDA/CAD and electromagnetic simulation solvers reside in the linked container environment `rf-suite` (`./rf-suite` Git submodule, pointing to `cholan2100/rf-suite`).
 
 Autonomous agents invoke all solvers and Python engines headlessly through the standard cross-platform launchers in `rf-suite/bin/`:
 - **Windows**: `rf-suite\bin\rf-run.bat <command>`
@@ -45,7 +45,7 @@ Autonomous agents invoke all solvers and Python engines headlessly through the s
    - Trigger the build:
      ```bash
      # On Windows (Docker in WSL Debian):
-     wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-workbench/rf-suite && docker compose build"
+     wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-agent/rf-suite && docker compose build"
      # Or if native Docker CLI is in Windows PATH:
      cd rf-suite && docker compose build
 

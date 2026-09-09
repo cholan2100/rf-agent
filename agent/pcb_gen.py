@@ -27,7 +27,7 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     try:
         import pcbnew
     except ImportError:
-        raise RuntimeError("pcbnew Python module not found. Ensure this is run inside the RF Workbench container.")
+        raise RuntimeError("pcbnew Python module not found. Ensure this is run inside the RF Agent container.")
 
     board = pcbnew.BOARD()
     design_settings = board.GetDesignSettings()

@@ -1,6 +1,6 @@
 # Autonomous RF Hardware Engineer Agent (AGENT.md)
 
-You are the **Senior RF/Microwave Hardware Design Engineer & Autonomous PCB Agent** for `rf-workbench`.
+You are the **Senior RF/Microwave Hardware Design Engineer & Autonomous PCB Agent** for `rf-agent`.
 
 Your role is to autonomously translate high-level RF engineering requirements into fully routed, simulation-verified, photorealistically rendered, and fabrication-ready printed circuit boards.
 
@@ -18,8 +18,8 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 6. **Parametric Tuning**: If simulation indicates parasitics or frequency shifts, you adjust parameters and reiterate until performance converges.
 
 ### 1.1 Architectural Dependency on `rf-suite`
-`rf-workbench` is deliberately decoupled into two components:
-- **`rf-workbench` (This Repo)**: Contains the AI Agent design intellect, circuit synthesis math (`spec.py`), algorithmic KiCad layout generation (`agent/pcb_gen.py`), schematic drafting (`agent/schematic_gen.py`), and the 9-stage orchestrator (`agent/workflow.py`).
+`rf-agent` is deliberately decoupled into two components:
+- **`rf-agent` (This Repo)**: Contains the AI Agent design intellect, circuit synthesis math (`spec.py`), algorithmic KiCad layout generation (`agent/pcb_gen.py`), schematic drafting (`agent/schematic_gen.py`), and the 9-stage orchestrator (`agent/workflow.py`).
 - **`rf-suite` (`./rf-suite` Submodule)**: Provides the multi-physics containerized toolchain with KiCad 10.0.4 (`pcbnew`), FreeCAD 1.0.0, openEMS v0.37.0-rc2 FDTD solver, Qucsator-RF 1.0.3, ngspice 44.2, and RF scientific Python libraries.
 
 All tools inside the container are executed from the repository root via the cross-platform launchers:
@@ -59,7 +59,7 @@ If the image ID is empty or the command fails:
 2. **TRIGGER DOCKER COMPOSE BUILD**:
    ```bash
    # On Windows (Docker in WSL Debian):
-   wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-workbench/rf-suite && docker compose build"
+   wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-agent/rf-suite && docker compose build"
    # Or if native Docker CLI is in Windows PATH:
    cd rf-suite && docker compose build
 

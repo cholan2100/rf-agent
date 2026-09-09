@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Diagnostic & Verification Test Suite for RF AI Suite / RF Workbench.
+Diagnostic & Verification Test Suite for RF Agent.
 Validates all EDA tools, Python modules, EM solvers, and CAD workbenches.
 """
 
@@ -9,7 +9,7 @@ import subprocess
 import os
 
 print("=" * 70)
-print("  RF Workbench Linux Environment - System Verification")
+print("  RF Agent Linux Environment - System Verification")
 print("=" * 70)
 
 results = []
