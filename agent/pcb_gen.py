@@ -313,15 +313,6 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         route_track(x_c3_2, y_c3_2, x_c3_2, y_c3_2 + 1.2, net_gnd, 0.8)
         add_via(x_c3_2, y_c3_2 + 1.2)
 
-    # J1 & J2 GND pin vias
-    x_j1_2, y_j1_2 = p_j1_2.x / 1e6, p_j1_2.y / 1e6
-    route_track(x_j1_2, y_j1_2, x_j1_2, y_j1_2 + 1.2, net_gnd, 0.8)
-    add_via(x_j1_2, y_j1_2 + 1.2)
-
-    x_j2_2, y_j2_2 = p_j2_2.x / 1e6, p_j2_2.y / 1e6
-    route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
-    add_via(x_j2_2, y_j2_2 + 1.2)
-
     # CPWG Via Fencing along RF Transmission Line
     # Top fence row at y = y_rf - 2.8 mm
     for vx in [5.5, 9.0, 12.5, 15.0, 17.5, 21.0, 24.5]:
