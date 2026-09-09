@@ -1,4 +1,4 @@
-﻿---
+---
 name: rf-workbench
 description: >-
   Autonomous RF/Microwave hardware engineer and PCB design suite. Use whenever the user asks
@@ -11,40 +11,67 @@ description: >-
 
 Use this skill to autonomously design, synthesize, route, simulate, render, and package production-ready RF PCBs without requiring the user to run manual procedural scripts.
 
-## Quick Execution Commands
+## Human-in-the-Loop Review Protocol (Mandatory)
 
-### 1. Autonomous End-to-End Synthesis from Natural Language
-Execute the full 9-stage engineering pipeline inside the container:
+When executing an RF design project, **never execute stages in a silent uninterrupted batch unless explicitly requested**.
+After completing **each task**, you must:
+1. **Show Deliverables Table**: Display the paths, file sizes, and status of generated files.
+2. **Display Visual Artifacts**: Present the relevant graphical renders (zoomed schematic crop, 3D raytraces, S-parameter curves, Smith chart, etc.) for visual inspection.
+3. **Interactive Confirmation via `ask_question`**: Prompt the user with exactly three choices:
+   - `(Recommended) I am satisfied with the output of this task. Proceed to the next task.`
+   - `I'd like to provide suggestions or adjust parameters to reiterate this task.`
+   - `Stop the process here so I can review the deliverables and think through next steps.`
+
+If the user requests reiteration, update `projects/<name>/spec.json` and re-run the specific stage using `--stages <stage>`.
+
+## Execution Commands
+
+### 1. Stage-by-Stage Interactive Execution (Standard Flow)
+Run each stage individually, reviewing deliverables with the user between stages:
+```bash
+# Task 1: Schematic & Zoomed Crop
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '<circuit description>' --f0 <freq> --stages schematic"
+
+# Task 2: PCB Layout & DRC
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb"
+
+# Task 3: 3D Raytrace Renders
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages render"
+
+# Task 4: FreeCAD & STEP CAD
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages cad"
+
+# Task 5: openEMS EM Simulation -> Touchstone .s2p
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em"
+
+# Task 6: Qucs-S Co-Simulation
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages qucs"
+
+# Task 7: RF Performance Charts
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages charts"
+
+# Task 8: Production Gerber ZIP
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages gerbers"
+
+# Task 9: Performance Report & BOM
+wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report"
+```
+
+### 2. Full Batch Pipeline Execution (Unattended)
 ```bash
 wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --desc '<circuit description>' --f0 <center_freq_ghz> --z0 50"
-```
-
-### 2. Execution with Presets
-```bash
-# Preset 1: 10 dB Precision Pi-Attenuator (DC-3GHz)
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --preset 1"
-
-# Preset 2: 2.45 GHz Microstrip Bandpass Filter
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --preset 2"
-
-# Preset 3: 1.5 - 2.5 GHz 2-Way Wilkinson Power Divider
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --preset 3"
-```
-
-### 3. Selective Stage Execution
-Run only specific stages (e.g. after modifying `spec.json`):
-```bash
-wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/docker-compose.yml exec -T -w /workspace/rf-workbench rf-workbench python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages em,qucs,charts,report"
 ```
 
 ## Quality Assurance Checklist
 1. **DRC Validation**: Verify `projects/<name>/<name>_drc.json` contains `0 violations` and `0 warnings`.
 2. **Impedance Matching**: Ensure transmission lines adhere to 50Ω Grounded Coplanar Waveguide (CPWG) dimensions ($w = 1.87\text{ mm}$, $s = 0.40\text{ mm}$ on 1.6mm FR4).
 3. **Artifact Integrity**: Check that all deliverables exist in `projects/<name>/`:
-   - `schematic_zoomed.png` (Task 1)
-   - `iso_render.png`, `top_render.png`, `bottom_render.png` (Task 3)
-   - `<name>.step` (Task 4)
-   - `<name>.s2p` (Task 5)
-   - `charts/*.png` (Task 8)
+   - `renders/schematic_zoomed.png` (Task 1)
+   - `<name>_drc.json` (Task 2)
+   - `renders/iso_render.png`, `renders/top_render.png`, `renders/bottom_render.png` (Task 3)
+   - `cad/<name>.step`, `cad/<name>.FCStd` (Task 4)
+   - `simulation/<name>.s2p` (Task 5)
+   - `simulation/<name>.dat` (Task 6)
+   - `charts/sparam_plot.png`, `charts/smith_chart.png` (Task 7)
+   - `gerbers_<name>.zip` (Task 8)
    - `PERFORMANCE_REPORT.md` (Task 9)
-   - `gerbers_<name>.zip` (Task 10)

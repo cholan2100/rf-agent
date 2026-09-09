@@ -1,4 +1,4 @@
-﻿"""
+"""
 Modular Headless Workflow Engine for Autonomous RF Design.
 Designed to be executed directly by AI Agents (like Antigravity) via CLI or Python API.
 """
@@ -21,7 +21,7 @@ from .report_gen import generate_performance_report
 from .gerber_pack import package_gerbers
 
 
-ALL_STAGES = ["schematic", "pcb", "render", "cad", "em", "qucs", "charts", "report", "gerbers"]
+ALL_STAGES = ["schematic", "pcb", "render", "cad", "em", "qucs", "charts", "gerbers", "report"]
 
 
 def execute_workflow(
@@ -145,14 +145,21 @@ def execute_workflow(
             "qucs_success": qucs_res["qucs_solver_success"]
         }
 
-    # Stage 8: RF Performance Charts
-    if "charts" in active_stages and qucs_res.get("sim_data"):
+    # Ensure sim_data is available for downstream charts/report even if qucs stage wasn't executed in this run
+    from .qucs_sim import _parse_simulation_data
+    dat_path = os.path.join(output_dir, "simulation", f"{spec.name}.dat")
+    sim_data = qucs_res.get("sim_data") or {}
+    if not sim_data and os.path.exists(s2p_path):
+        sim_data = _parse_simulation_data(s2p_path, dat_path, spec)
+
+    # Stage 7: RF Performance Charts
+    if "charts" in active_stages and sim_data:
         if verbose:
             print("[7/9] Plotting publication-quality RF performance charts...")
-        chart_files = render_rf_charts(spec, qucs_res["sim_data"], output_dir)
+        chart_files = render_rf_charts(spec, sim_data, output_dir)
         results["stages"]["charts"] = chart_files
 
-    # Stage 9: Gerbers
+    # Stage 8: Gerbers
     gerber_zip_path = os.path.join(output_dir, f"gerbers_{spec.name}.zip")
     if "gerbers" in active_stages and os.path.exists(pcb_path):
         if verbose:
@@ -160,11 +167,24 @@ def execute_workflow(
         gerber_res = package_gerbers(spec, pcb_path, output_dir)
         results["stages"]["gerbers"] = gerber_res
 
-    # Stage 10: Performance Report
-    if "report" in active_stages and qucs_res.get("sim_data"):
+    # Stage 9: Performance Report
+    if "report" in active_stages:
         if verbose:
             print("[9/9] Compiling markdown performance report and BOM...")
-        rpt_path = generate_performance_report(spec, qucs_res["sim_data"], renders, chart_files, gerber_zip_path, output_dir)
+        # Discover existing renders if not generated in this run
+        if not renders:
+            renders_dir = os.path.join(output_dir, "renders")
+            renders = {
+                "iso": {"path": os.path.join(renders_dir, "iso_render.png"), "size_kb": 0},
+                "top": {"path": os.path.join(renders_dir, "top_render.png"), "size_kb": 0},
+                "bottom": {"path": os.path.join(renders_dir, "bottom_render.png"), "size_kb": 0}
+            }
+        # Discover existing charts if not generated in this run
+        if not chart_files:
+            charts_dir = os.path.join(output_dir, "charts")
+            chart_files = [os.path.join(charts_dir, f) for f in ["sparam_plot.png", "smith_chart.png", "stability_plot.png", "impedance_plot.png"] if os.path.exists(os.path.join(charts_dir, f))]
+
+        rpt_path = generate_performance_report(spec, sim_data, renders, chart_files, gerber_zip_path, output_dir)
         results["stages"]["report"] = {
             "report_path": rpt_path,
             "report_size_bytes": os.path.getsize(rpt_path) if os.path.exists(rpt_path) else 0

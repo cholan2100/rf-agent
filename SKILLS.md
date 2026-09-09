@@ -1,4 +1,4 @@
-﻿# RF AI Suite Skills Catalog (SKILLS.md)
+# RF AI Suite Skills Catalog (SKILLS.md)
 
 This document serves as the operational reference manual for the specialized skills possessed by the **Autonomous RF Hardware Engineer Agent**.
 
@@ -163,3 +163,33 @@ Compiles `PERFORMANCE_REPORT.md` containing:
 * If bandwidth or center frequency deviates, the agent recalculates $L$ or $C$ using closed-form perturbation:
   $$\Delta f_0 \approx -\frac{f_0}{2} \left( \frac{\Delta L}{L} + \frac{\Delta C}{C} \right)$$
 * Re-runs downstream stages (`python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb,render,em,qucs,charts,report`) until performance converges.
+
+---
+
+## Skill 12: Human-in-the-Loop Stage Review Protocol & Iteration Gating
+
+After executing each task in the workflow, the agent executes an interactive review gate before continuing:
+
+### Stage Handover Protocol
+1. **Deliverables Summary**: Itemize output files with paths, sizes, and engineering parameters.
+2. **Visual Inspection**: Display relevant graphics (zoomed schematic crop, 3D raytraces, S-parameter curves, Smith chart, etc.).
+3. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
+4. **Interactive Choice (`ask_question`)**:
+   - `(Recommended) I am satisfied with the output of this task. Proceed to the next task.`
+   - `I'd like to provide suggestions or adjust parameters to reiterate this task.`
+   - `Stop the process here so I can review the deliverables and think through next steps.`
+
+### Stage Review Matrix
+
+| Stage | Review Deliverables | Visual Check | Passing Criteria |
+|---|---|---|---|
+| **1. schematic** | `<name>.kicad_sch`<br>`renders/schematic_zoomed.png` | Zoomed schematic crop | Valid KiCad 10 syntax, correct 0805 symbols, 50Ω ports |
+| **2. pcb** | `<name>.kicad_pcb`<br>`<name>_drc.json` | DRC error report | **0 violations, 0 warnings**, CPWG $w=1.87\text{mm}$, $s=0.40\text{mm}$ |
+| **3. render** | `renders/iso_render.png`<br>`renders/top_render.png`<br>`renders/bottom_render.png` | 3D Raytraced views | SMA connector clearance, ground stitching, pad solder joints |
+| **4. cad** | `cad/<name>.step`<br>`cad/<name>.FCStd` | Mechanical geometry check | Valid STEP solid assembly, edge chamfers, M2 mounting holes |
+| **5. em** | `simulation/<name>.s2p`<br>`simulation/<name>_openems.m` | Touchstone file summary | Valid Touchstone format, 201 sweep points, passive S-params |
+| **6. qucs** | `simulation/<name>.dat`<br>`simulation/<name>.net` | Simulation convergence log | Qucsator-RF solver zero-error exit, dataset generated |
+| **7. charts** | `charts/sparam_plot.png`<br>`charts/smith_chart.png`<br>`charts/stability_plot.png` | 300 DPI Matplotlib charts | Target $S_{21}$ achieved, Return loss $S_{11} < -15\text{ dB}$, $K > 1$ |
+| **8. gerbers** | `gerbers_<name>.zip` | Gerber file manifest | 26 production layers, Excellon drill file (.drl) included |
+| **9. report** | `PERFORMANCE_REPORT.md` | Final documentation & BOM | Margin analysis table, complete 0805 BOM, graphic links |
+
