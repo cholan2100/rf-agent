@@ -163,37 +163,41 @@ To maintain total transparency and engineering rigor, the agent follows a strict
    - **No Redundant HTML Iframe Embeds**: Do NOT generate temporary review HTML files (`review_renders.html`) or `<agent-embed>` tags. Native Markdown image tags render cleanly, borderless, and at native resolution directly in the chat timeline without duplicate display or iframe scrollbars.
    - **No Empty Tool Turns**: **NEVER** call `ask_question` with empty message text or in an isolated step. The chat response must contain the embedded visual render(s), deliverables table, and engineering health check directly above the interactive question prompt.
 2. **Never Advance Unattended**: Never execute subsequent stages automatically without explicit human confirmation.
-3. **Interactive Handover**: In each stage review turn, present:
+3. **Interactive Handover & Context-Aware Prompts**: In each stage review turn, present:
    - The embedded visual render(s) rendered directly in the chat window.
    - A deliverables breakdown table (file paths, sizes, metrics).
    - An engineering integrity check (DRC 0 errors, CPWG impedance 50Ω, Pass/Fail tolerances).
    - The interactive 3-option prompt via `ask_question`.
+   - **Context-Specific Option Text (Mandatory)**: Never use generic/static phrases like "I am satisfied with the output of this task" or "reiterate this task". Always tailor Option 1 and Option 2 to explicitly name the completed artifact and the immediate next step (e.g., *"Schematic looks good, let's move to PCB design"*).
 
+### Stage-by-Stage Review & Context-Aware Prompt Mapping
 
-### Stage-by-Stage Review Deliverables Mapping
-
-| Task # | Stage Name | Deliverable Files | Immediate Chat Visual Assets | Review Focus |
+| Task # | Stage | Visual Deliverable In Chat | Option 1 (Proceed) | Option 2 (Reiterate / Adjust) |
 |---|---|---|---|---|
-| **Task 1** | `schematic` | `<name>.kicad_sch`<br>`renders/schematic_zoomed.png` | Zoomed high-DPI schematic crop rendered inline in chat | Circuit topology, component values, reference designators, 50Ω ports |
-| **Task 2** | `pcb` | `<name>.kicad_pcb`<br>`<name>_drc.json` | Headless DRC report summary (0 errors, 0 warnings) | CPWG trace width ($w$), gap ($s$), 45° pad tapers, via fencing rows |
-| **Task 3** | `render` | `renders/iso_render.png`<br>`renders/top_render.png`<br>`renders/bottom_render.png` | Photorealistic 3D Raytraced Isometric, Top, and Bottom views in chat | SMD solder pad alignment, connector clearance, ground stitching aesthetics |
-| **Task 4** | `cad` | `cad/<name>.step`<br>`cad/<name>.FCStd` | STEP assembly file size and FreeCAD geometry status | Enclosure fitment, board edge chamfers, M2 mounting hole placement |
-| **Task 5** | `em` | `simulation/<name>.s2p`<br>`simulation/<name>_openems.m` | Touchstone frequency range and 201-point sweep summary | S-parameter passivity, causality, port reference impedance (50Ω) |
-| **Task 6** | `qucs` | `simulation/<name>_qucs.sch`<br>`simulation/<name>.net`<br>`simulation/<name>.dat` | Qucsator co-simulation convergence & netlist status | 50Ω system termination, S-parameter block interconnection |
-| **Task 7** | `charts` | `charts/sparam_plot.png`<br>`charts/smith_chart.png`<br>`charts/stability_plot.png`<br>`charts/impedance_plot.png` | Matplotlib 300 DPI plots displayed inline: S21/S11, Smith chart, Stability K, Zin | Insertion loss at $f_0$, Return loss margin ($<-15$ dB), passband ripple |
-| **Task 8** | `gerbers` | `gerbers_<name>.zip` | Gerber file manifest & 26-layer verification | Complete production layers: copper, mask, silkscreen, paste, drill (.drl) |
-| **Task 9** | `report` | `PERFORMANCE_REPORT.md` | Full performance summary markdown table and Bill of Materials | Spec vs Simulated delta, margin flags, component sourcing table |
+| **Task 1** | `schematic` | Zoomed KiCad 10 schematic crop | `(Recommended) Schematic looks good, let's move to PCB design.` | `I'd like to adjust component values or circuit topology to reiterate the schematic.` |
+| **Task 2** | `pcb` | 0-error DRC report & layout metrics | `(Recommended) PCB layout & DRC look good, let's move to 3D raytracing.` | `I'd like to modify board dimensions, clearance, or trace routing for the PCB.` |
+| **Task 3** | `render` | 3D Raytraced Isometric & Top views | `(Recommended) 3D renders look great, let's generate mechanical CAD & STEP assembly.` | `I'd like to adjust component placement or raytracing angles and re-render.` |
+| **Task 4** | `cad` | STEP assembly & FreeCAD status | `(Recommended) Mechanical STEP assembly looks solid, let's run openEMS simulation.` | `I'd like to adjust mounting holes or enclosure constraints for mechanical CAD.` |
+| **Task 5** | `em` | Touchstone 201-point sweep & S-params | `(Recommended) Touchstone S-parameters look good, let's run Qucs co-simulation.` | `I'd like to modify frequency sweep range or substrate parameters for EM simulation.` |
+| **Task 6** | `qucs` | Qucsator convergence & netlist status | `(Recommended) Qucs simulation converged, let's plot RF performance charts.` | `I'd like to adjust termination impedance or simulation parameters in Qucs.` |
+| **Task 7** | `charts` | Matplotlib S21/S11, Smith, Zin, K charts | `(Recommended) RF charts & response look great, let's package production Gerbers.` | `I'd like to tune circuit parameters or chart scales to optimize RF response.` |
+| **Task 8** | `gerbers` | 26-layer Gerber manifest & drill file | `(Recommended) Gerbers packaged, let's generate the final performance report & BOM.` | `I'd like to adjust layer stackup or manufacturing rules before finalizing Gerbers.` |
+| **Task 9** | `report` | Markdown report table & complete BOM | `(Recommended) Performance report & BOM look great, engineering package complete.` | `I'd like to update project specifications, margins, or documentation notes.` |
+
+> [!NOTE]
+> **Option 3** is always: `"Pause execution here so I can review the deliverables and think through next steps."`
 
 ### Handling User Response
-* **User chooses Option 1 (Satisfied)**: Proceed to execute the next task in the workflow.
+* **User chooses Option 1 (Proceed)**: Proceed immediately to execute the next task in the workflow.
 * **User chooses Option 2 (Reiterate / Adjust)**:
-  1. Receive user suggestions (e.g., "Increase capacitance from 33pF to 47pF", "Widen board by 5mm", "Shift center frequency to 144 MHz").
+  1. Receive user suggestions (e.g., "Increase capacitance from 26pF to 33pF", "Widen board by 5mm", "Change center frequency to 144 MHz").
   2. Update `projects/<name>/spec.json`.
   3. Re-run the current task (and any necessary upstream tasks) using `--stages <stage>`.
   4. Immediately display the updated visual render in the chat and re-prompt for confirmation.
-* **User chooses Option 3 (Stop / Pause)**:
+* **User chooses Option 3 (Pause / Stop)**:
   1. Halt pipeline execution immediately.
   2. Confirm that all artifacts generated up to the current stage are safely preserved in `projects/<name>/`.
   3. Provide instructions on how to resume when ready.
+
 
 

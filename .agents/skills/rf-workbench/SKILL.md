@@ -23,12 +23,13 @@ Immediately upon completing **each task**, you must:
 
 2. **Show Deliverables Table**: Display the relative paths, file sizes, and status of generated files.
 3. **Engineering Integrity Check**: Verify DRC violations (0 errors, 0 warnings) and electrical specifications.
-4. **Interactive Confirmation via `ask_question`**: Prompt the user with exactly three choices:
-   - `(Recommended) I am satisfied with the output of this task. Proceed to the next task.`
-   - `I'd like to provide suggestions or adjust parameters to reiterate this task.`
-   - `Stop the process here so I can review the deliverables and think through next steps.`
+4. **Interactive Confirmation via `ask_question`**: Prompt the user with context-specific text tailored to the active stage and upcoming task (never use static generic phrases):
+   - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.` (e.g., *"Schematic looks good, let's move to PCB design."*)
+   - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.` (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic."*)
+   - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
 
 If the user requests reiteration, update `projects/<name>/spec.json` and re-run the specific stage using `--stages <stage>`.
+
 
 
 

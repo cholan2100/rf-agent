@@ -176,24 +176,23 @@ After executing each task in the workflow, the agent executes an interactive rev
 3. **Deliverables Summary**: Itemize output files with relative paths, sizes, and engineering parameters.
 4. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
 5. **Interactive Choice (`ask_question`)**:
-   - `(Recommended) I am satisfied with the output of this task. Proceed to the next task.`
-   - `I'd like to provide suggestions or adjust parameters to reiterate this task.`
-   - `Stop the process here so I can review the deliverables and think through next steps.`
+   - **Context-Specific Text (Mandatory)**: Never use generic static phrases. Customize Option 1 and Option 2 for the active task and upcoming step.
+   - **Option 1 (Proceed)**: Name the verified artifact and next action (e.g., *"Schematic looks good, let's move to PCB design"*).
+   - **Option 2 (Reiterate / Adjust)**: Name specific elements to iterate (e.g., *"I'd like to adjust component values or circuit topology to reiterate the schematic"*).
+   - **Option 3 (Pause / Stop)**: *"Pause execution here so I can review the deliverables and think through next steps."*
 
+### Stage Review & Prompt Mapping Matrix
 
+| Stage | Review Deliverables | Visual Check | Option 1 (Proceed) | Option 2 (Reiterate / Adjust) |
+|---|---|---|---|---|
+| **1. schematic** | `<name>.kicad_sch`<br>`renders/schematic_zoomed.png` | Zoomed schematic crop | `(Recommended) Schematic looks good, let's move to PCB design.` | `I'd like to adjust component values or circuit topology to reiterate the schematic.` |
+| **2. pcb** | `<name>.kicad_pcb`<br>`<name>_drc.json` | DRC error report | `(Recommended) PCB layout & DRC look good, let's move to 3D raytracing.` | `I'd like to modify board dimensions, clearance, or trace routing for the PCB.` |
+| **3. render** | `renders/iso_render.png`<br>`renders/top_render.png`<br>`renders/bottom_render.png` | 3D Raytraced views | `(Recommended) 3D renders look great, let's generate mechanical CAD & STEP assembly.` | `I'd like to adjust component placement or raytracing angles and re-render.` |
+| **4. cad** | `cad/<name>.step`<br>`cad/<name>.FCStd` | Mechanical geometry check | `(Recommended) Mechanical STEP assembly looks solid, let's run openEMS simulation.` | `I'd like to adjust mounting holes or enclosure constraints for mechanical CAD.` |
+| **5. em** | `simulation/<name>.s2p`<br>`simulation/<name>_openems.m` | Touchstone file summary | `(Recommended) Touchstone S-parameters look good, let's run Qucs co-simulation.` | `I'd like to modify frequency sweep range or substrate parameters for EM simulation.` |
+| **6. qucs** | `simulation/<name>.dat`<br>`simulation/<name>.net` | Simulation convergence log | `(Recommended) Qucs simulation converged, let's plot RF performance charts.` | `I'd like to adjust termination impedance or simulation parameters in Qucs.` |
+| **7. charts** | `charts/sparam_plot.png`<br>`charts/smith_chart.png`<br>`charts/stability_plot.png` | 300 DPI Matplotlib charts | `(Recommended) RF charts & response look great, let's package production Gerbers.` | `I'd like to tune circuit parameters or chart scales to optimize RF response.` |
+| **8. gerbers** | `gerbers_<name>.zip` | Gerber file manifest | `(Recommended) Gerbers packaged, let's generate the final performance report & BOM.` | `I'd like to adjust layer stackup or manufacturing rules before finalizing Gerbers.` |
+| **9. report** | `PERFORMANCE_REPORT.md` | Final documentation & BOM | `(Recommended) Performance report & BOM look great, engineering package complete.` | `I'd like to update project specifications, margins, or documentation notes.` |
 
-
-### Stage Review Matrix
-
-| Stage | Review Deliverables | Visual Check | Passing Criteria |
-|---|---|---|---|
-| **1. schematic** | `<name>.kicad_sch`<br>`renders/schematic_zoomed.png` | Zoomed schematic crop | Valid KiCad 10 syntax, correct 0805 symbols, 50Ω ports |
-| **2. pcb** | `<name>.kicad_pcb`<br>`<name>_drc.json` | DRC error report | **0 violations, 0 warnings**, CPWG $w=1.87\text{mm}$, $s=0.40\text{mm}$ |
-| **3. render** | `renders/iso_render.png`<br>`renders/top_render.png`<br>`renders/bottom_render.png` | 3D Raytraced views | SMA connector clearance, ground stitching, pad solder joints |
-| **4. cad** | `cad/<name>.step`<br>`cad/<name>.FCStd` | Mechanical geometry check | Valid STEP solid assembly, edge chamfers, M2 mounting holes |
-| **5. em** | `simulation/<name>.s2p`<br>`simulation/<name>_openems.m` | Touchstone file summary | Valid Touchstone format, 201 sweep points, passive S-params |
-| **6. qucs** | `simulation/<name>.dat`<br>`simulation/<name>.net` | Simulation convergence log | Qucsator-RF solver zero-error exit, dataset generated |
-| **7. charts** | `charts/sparam_plot.png`<br>`charts/smith_chart.png`<br>`charts/stability_plot.png` | 300 DPI Matplotlib charts | Target $S_{21}$ achieved, Return loss $S_{11} < -15\text{ dB}$, $K > 1$ |
-| **8. gerbers** | `gerbers_<name>.zip` | Gerber file manifest | 26 production layers, Excellon drill file (.drl) included |
-| **9. report** | `PERFORMANCE_REPORT.md` | Final documentation & BOM | Margin analysis table, complete 0805 BOM, graphic links |
 
