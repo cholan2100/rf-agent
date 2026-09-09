@@ -122,18 +122,18 @@ rf-suite\bin\rf-run.bat python tests/verify_environment.py
 ./rf-suite/bin/rf-run python3 tests/verify_environment.py
 ```
 
-### 3. Run Reference Example (Simple LED PCB)
-Synthesize, verify DRC, generate 31 production Gerbers, STEP model, and 3D raytrace:
+### 3. Run Reference Example (100MHz LC Bandpass Filter)
+Synthesize, verify DRC, generate production Gerbers, STEP model, and 3D raytrace:
 ```bash
 # On Windows:
-rf-suite\bin\rf-run.bat python examples/simple_led/run_pipeline.py
+rf-suite\bin\rf-run.bat python -m agent.workflow --desc "BPF for 100mhz center with LC tank parallel shunt"
 
 # On Linux / WSL:
-./rf-suite/bin/rf-run python3 examples/simple_led/run_pipeline.py
+./rf-suite/bin/rf-run python3 -m agent.workflow --desc "BPF for 100mhz center with LC tank parallel shunt"
 ```
 
 <p align="center">
-  <img src="examples/simple_led/renders/iso_render.png" alt="Simple LED PCB 3D Raytrace Render" width="700">
+  <img src="examples/bpf_100mhz_lc/renders/iso_render.png" alt="100MHz Bandpass Filter 3D Raytrace Render" width="700">
 </p>
 
 ---
@@ -301,7 +301,7 @@ rf-workbench/
 ├── .agents/skills/rf-workbench/    # AI Agent skill definition (SKILL.md)
 ├── projects/                       # Generated design projects & deliverables
 ├── examples/                       # Automated reference examples
-│   └── simple_led/                 # Automated reference manufacturing pipeline
+│   └── bpf_100mhz_lc/              # Reference 100MHz LC bandpass filter project
 ├── tests/                          # Workflow unit tests & diagnostics
 │   ├── test_workflow.py            # Headless workflow engine tests
 │   └── verify_environment.py       # 14-point EDA/solver diagnostic suite

@@ -1,0 +1,5 @@
+# Qucs-S Headless RF Netlist for 100MHz Shunted LC Tank Bandpass Filter (50Ω)
+Pac:P1 _net_in 0 Num="1" Z="50.0 Ohm" P="0 dBm" f="0.1 GHz"
+Pac:P2 _net_out 0 Num="2" Z="50.0 Ohm" P="0 dBm" f="0.1 GHz"
+2Port:X1 _net_in _net_out 0 File="projects/bpf_100mhz_lc/simulation/bpf_100mhz_lc.s2p" Type="linear"
+.SP:SP1 Type="lin" Start="0.01 GHz" Stop="0.2 GHz" Points="201" Noise="no"

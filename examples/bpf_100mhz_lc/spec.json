@@ -1,0 +1,65 @@
+{
+  "name": "bpf_100mhz_lc",
+  "title": "100MHz Shunted LC Tank Bandpass Filter (50\u03a9)",
+  "topology": "bandpass_shunt",
+  "description": "Shunted parallel LC tank bandpass filter centered at 100MHz (L=100nH, C=25.3pF) with 50-ohm CPWG through line.",
+  "f_min_ghz": 0.01,
+  "f_0_ghz": 0.1,
+  "f_max_ghz": 0.2,
+  "z0_ohm": 50.0,
+  "target_s21_db": -0.5,
+  "target_s11_db": -20.0,
+  "target_s22_db": -25.0,
+  "width_mm": 35.0,
+  "height_mm": 20.0,
+  "substrate_name": "FR4",
+  "dielectric_er": 4.4,
+  "substrate_height_mm": 1.6,
+  "trace_mode": "CPWG",
+  "trace_gap_mm": 0.4,
+  "rf_trace_width_mm": 1.87,
+  "effective_dielectric_constant": 2.88,
+  "em_sim_type": "traces",
+  "components": {
+    "C1": {
+      "type": "capacitor",
+      "value": "25.3pF",
+      "nominal_val": 2.5330295910584452e-11,
+      "package": "Capacitor_SMD:C_0805_2012Metric",
+      "vendor": "Murata / Johanson",
+      "series": "GRM / High-Q C0G",
+      "role": "Shunt Parallel Capacitor"
+    },
+    "L1": {
+      "type": "inductor",
+      "value": "100nH",
+      "nominal_val": 1e-07,
+      "package": "Inductor_SMD:L_0603_1608Metric",
+      "vendor": "Coilcraft / Murata",
+      "series": "0603CS / LQW18AN",
+      "role": "Shunt Parallel Inductor"
+    },
+    "J1": {
+      "type": "connector",
+      "value": "SMA_IN",
+      "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount",
+      "vendor": "Samtec",
+      "series": "SMA-J-P-H-ST-EM1",
+      "role": "RF Input"
+    },
+    "J2": {
+      "type": "connector",
+      "value": "SMA_OUT",
+      "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount",
+      "vendor": "Samtec",
+      "series": "SMA-J-P-H-ST-EM1",
+      "role": "RF Output"
+    }
+  },
+  "additional_reqs": [
+    "50-ohm Controlled Impedance RF Lines",
+    "Ground Via Fencing Stitching",
+    "Solid Bottom Ground Plane",
+    "Corner Chamfer Radii (2.0mm)"
+  ]
+}
