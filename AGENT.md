@@ -154,16 +154,13 @@ As an autonomous agent, you must ensure:
 To maintain total transparency and engineering rigor, the agent follows a strict **Human-in-the-Loop Gating & Chat Visualization Protocol** during execution:
 
 ### Mandatory Rules: Immediate Inline Chat Rendering & Stage Gating
-1. **Immediate Inline Chat Display**: Never just state that renders are saved on disk or output only file links. Immediately upon completing any stage that produces visual assets (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `bottom_render.png`, `sparam_plot.png`, `smith_chart.png`, etc.):
+1. **Single Native Markdown Image Display**: Never just state that renders are saved on disk or output only file links. Immediately upon completing any stage that produces visual assets (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `bottom_render.png`, `sparam_plot.png`, `smith_chart.png`, etc.):
    - **Artifact Directory Sync**: Copy the generated `.png` files to the conversation artifact directory `<appDataDir>\brain\<conversation-id>\`.
-   - **Generative UI Review Card**: Construct a self-contained HTML widget (`review_renders.html`) with the images embedded directly as base64 data URIs (`data:image/png;base64,...`) and styled via Tailwind CSS, and embed it inline in the chat message using:
-     ```html
-     <agent-embed src="file:///<artifact_path>/review_renders.html"></agent-embed>
-     ```
-   - **Markdown Image Fallback**: Also embed standard Markdown image tags directly in the chat body:
+   - **Native Markdown Embed (Single)**: Embed each image ONCE using standard Markdown syntax directly in the chat response:
      ```markdown
      ![Zoomed Schematic](file:///<artifact_path>/schematic_zoomed.png)
      ```
+   - **No Redundant HTML Iframe Embeds**: Do NOT generate temporary review HTML files (`review_renders.html`) or `<agent-embed>` tags. Native Markdown image tags render cleanly, borderless, and at native resolution directly in the chat timeline without duplicate display or iframe scrollbars.
    - **No Empty Tool Turns**: **NEVER** call `ask_question` with empty message text or in an isolated step. The chat response must contain the embedded visual render(s), deliverables table, and engineering health check directly above the interactive question prompt.
 2. **Never Advance Unattended**: Never execute subsequent stages automatically without explicit human confirmation.
 3. **Interactive Handover**: In each stage review turn, present:
@@ -171,6 +168,7 @@ To maintain total transparency and engineering rigor, the agent follows a strict
    - A deliverables breakdown table (file paths, sizes, metrics).
    - An engineering integrity check (DRC 0 errors, CPWG impedance 50Ω, Pass/Fail tolerances).
    - The interactive 3-option prompt via `ask_question`.
+
 
 ### Stage-by-Stage Review Deliverables Mapping
 

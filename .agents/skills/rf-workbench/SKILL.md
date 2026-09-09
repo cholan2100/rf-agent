@@ -15,11 +15,12 @@ Use this skill to autonomously design, synthesize, route, simulate, render, and 
 
 When executing an RF design project, **never execute stages in a silent uninterrupted batch unless explicitly requested**.
 Immediately upon completing **each task**, you must:
-1. **Direct Inline Chat Image Rendering**: If the task generated visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.):
+1. **Single Native Markdown Image Display**: If the task generated visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.):
    - Copy `.png` files to the artifact directory `<appDataDir>\brain\<conversation-id>\`.
-   - Embed an inline Generative UI review card (`<agent-embed src="file:///<artifact_path>/review_renders.html"></agent-embed>`) with base64 encoded images.
-   - Also embed Markdown image tags (`![<Description>](<artifact_path>)`) directly in the chat text.
-   - Never emit an empty tool turn when calling `ask_question`—always write out the visual cards and deliverables in the chat message!
+   - Embed each image ONCE using standard Markdown image syntax (`![<Description>](<artifact_path>)`) directly in the chat message.
+   - Do NOT generate HTML review files (`review_renders.html`) or `<agent-embed>` iframe tags, to avoid duplicate rendering and scrollbars.
+   - Never emit an empty tool turn when calling `ask_question`—always write out the visual image and deliverables in the chat message!
+
 2. **Show Deliverables Table**: Display the relative paths, file sizes, and status of generated files.
 3. **Engineering Integrity Check**: Verify DRC violations (0 errors, 0 warnings) and electrical specifications.
 4. **Interactive Confirmation via `ask_question`**: Prompt the user with exactly three choices:

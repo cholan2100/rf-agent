@@ -171,16 +171,15 @@ Compiles `PERFORMANCE_REPORT.md` containing:
 After executing each task in the workflow, the agent executes an interactive review gate before continuing:
 
 ### Stage Handover Protocol
-1. **Direct Inline Chat Image Rendering**: Immediately upon completing any stage with visual deliverables, copy `.png` assets to the conversation artifacts directory and render them directly into the chat response using:
-   - **Generative UI Embed**: Self-contained Tailwind card with base64 embedded images: `<agent-embed src="file:///<artifact_path>/review_renders.html"></agent-embed>`.
-   - **Markdown Image Embed**: Direct inline syntax `![<Description>](<artifact_path>)`.
-   - **No Empty Turns**: Never call `ask_question` in an isolated step without the visual render and deliverables table in the chat body.
-2. **Deliverables Summary**: Itemize output files with relative paths, sizes, and engineering parameters.
-3. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
-4. **Interactive Choice (`ask_question`)**:
+1. **Single Native Markdown Image Display**: Immediately upon completing any stage with visual deliverables, copy `.png` assets to the conversation artifacts directory and embed each image ONCE using standard Markdown syntax directly in the chat response: `![<Description>](<artifact_path>)`. Do NOT generate intermediate HTML iframe cards (`review_renders.html` / `<agent-embed>`), as that duplicates images and creates unnecessary scrollbars.
+2. **No Empty Turns**: Never call `ask_question` in an isolated step without the visual render and deliverables table in the chat body.
+3. **Deliverables Summary**: Itemize output files with relative paths, sizes, and engineering parameters.
+4. **Engineering Integrity**: Confirm 0 DRC errors, CPWG 50Ω matching, and specification margins.
+5. **Interactive Choice (`ask_question`)**:
    - `(Recommended) I am satisfied with the output of this task. Proceed to the next task.`
    - `I'd like to provide suggestions or adjust parameters to reiterate this task.`
    - `Stop the process here so I can review the deliverables and think through next steps.`
+
 
 
 
