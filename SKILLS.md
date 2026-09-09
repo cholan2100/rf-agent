@@ -10,8 +10,8 @@ This document serves as the operational reference manual for the specialized ski
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
 > 4. **JUMP STRAIGHT INTO TASK 1 ON TURN 1**: Immediately launch **Task 1 (Schematic)** using the standard execution command:
 >    ```bash
->    # If running via the external RF container environment (rf-suite):
->    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
+>    # If running via the linked RF container environment (rf-suite):
+>    wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow --desc '<circuit description>' --stages schematic"
 >    # Or directly in a Python RF runtime environment:
 >    python3 -m agent.workflow --desc '<circuit description>' --stages schematic
 >    ```

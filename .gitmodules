@@ -1,0 +1,3 @@
+[submodule "rf-suite"]
+	path = rf-suite
+	url = https://github.com/cholan2100/rf-suite.git

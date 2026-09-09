@@ -108,9 +108,13 @@ The automated pipeline consists of 9 sequential, modular stages:
    ```bash
    pip install -r requirements.txt
    ```
-2. **RF Suite Linux Container (`rf-suite`)**: The dedicated companion container environment (`../rf-suite` / `rf-linux-env`) provides pre-compiled KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and X11/noVNC desktop with zero host pollution:
+2. **Linked RF Suite Container (`./rf-suite`)**: The containerized engineering environment is linked as a Git submodule at `./rf-suite` (from [`cholan2100/rf-suite`](https://github.com/cholan2100/rf-suite)). It provides pre-compiled KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and X11/noVNC desktop:
    ```bash
-   wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-suite/docker-compose.yml exec -T -w /workspace/rf-workbench rf-suite python3 -m agent.workflow [arguments]"
+   # Initialize submodule if cloning for the first time:
+   git submodule update --init --recursive
+
+   # Execute workflow headlessly inside the linked container:
+   wsl -d Debian bash -c "docker compose -f /mnt/d/Workspace/rf/rf-workbench/rf-suite/docker-compose.yml exec -T -w /workspace rf-suite python3 -m agent.workflow [arguments]"
    ```
 
 ---
@@ -201,8 +205,10 @@ rf-workbench/
 ├── tests/                          # Workflow unit tests & diagnostics
 │   ├── test_workflow.py            # Headless workflow engine tests
 │   └── verify_environment.py       # 14-point EDA/solver diagnostic suite
+├── rf-suite/                       # Linked Git submodule: EDA/solver container (cholan2100/rf-suite)
 ├── AGENT.md                        # Autonomous agent operating handbook
 ├── SKILLS.md                       # RF engineering skills catalog
+├── .gitmodules                     # Git submodule configuration
 ├── requirements.txt                # Python RF & scientific dependencies
 └── README.md
 ```
