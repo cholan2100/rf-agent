@@ -45,7 +45,7 @@ $$\text{Propagation Delay } t_{pd} = \frac{\sqrt{\varepsilon_{eff}}}{c_0}, \quad
 ### 2.1 KiCad 10 S-Expression Generation
 * Generates valid `(kicad_sch ...)` syntax conforming to KiCad 10 format.
 * Symbols used: `Device:R`, `Device:C`, `Device:L`, `Connector:Conn_Coaxial`, `power:GND`.
-* Assigns standard 0805 SMD footprints for resistors and capacitors (`Resistor_SMD:R_0805_2012Metric`, `Capacitor_SMD:C_0805_2012Metric`), 0603 for inductors (`Inductor_SMD:L_0603_1608Metric`, falling back to 0805/1206 only when needed), and SMA vertical connectors (`Connector_Coaxial:SMA_Amphenol_132134_Vertical`).
+* Assigns standard 0805 SMD footprints for resistors and capacitors (`Resistor_SMD:R_0805_2012Metric`, `Capacitor_SMD:C_0805_2012Metric`), 0603 for inductors (`Inductor_SMD:L_0603_1608Metric`, falling back to 0805/1206 only when needed), and small Samtec SMA Edge Mount connectors (`Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount`). Do NOT use Amphenol connectors or pin headers for RF ports.
 
 ### 2.2 Zoomed High-DPI Vector/Raster Rendering
 1. Vector export: `kicad-cli sch export svg --exclude-drawing-sheet --no-background-color -o <dir> <sch>`

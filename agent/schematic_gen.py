@@ -9,7 +9,10 @@ import uuid
 import datetime
 import subprocess
 from PIL import Image
-import cairosvg
+try:
+    import cairosvg
+except ImportError:
+    cairosvg = None
 from .spec import CircuitSpec
 
 def generate_schematic(spec: CircuitSpec, output_dir: str, progress_callback=None) -> tuple[str, str]:
@@ -62,7 +65,7 @@ def generate_schematic(spec: CircuitSpec, output_dir: str, progress_callback=Non
         subprocess.run(cmd_svg, capture_output=True, text=True, check=True)
 
         generated_svg = os.path.join(renders_dir, f"{spec.name}.svg")
-        if os.path.exists(generated_svg):
+        if os.path.exists(generated_svg) and cairosvg is not None:
             # Rasterize via cairosvg at 300 DPI equivalent (scale 3.0)
             cairosvg.svg2png(url=generated_svg, write_to=zoomed_png_path, scale=3.0)
 
@@ -131,9 +134,11 @@ def _generate_attenuator_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -
     u_r1, u_r2, u_r3 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
     u_gnd1, u_gnd2 = str(uuid.uuid4()), str(uuid.uuid4())
 
-    r1_val = spec.components.get("R1", {}).get("value", "96R")
-    r2_val = spec.components.get("R2", {}).get("value", "71R")
-    r3_val = spec.components.get("R3", {}).get("value", "96R")
+    r1_val = spec.components.get("R1", {}).get("value", "100R")
+    r2_val = spec.components.get("R2", {}).get("value", "100R")
+    r3_val = spec.components.get("R3", {}).get("value", "100R")
+    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
 
     return f"""(kicad_sch
 	(version 20231120)
@@ -158,7 +163,7 @@ def _generate_attenuator_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -
 		(uuid "{u_j1}")
 		(property "Reference" "J1" (at 38.1 68.58 0))
 		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "Connector_Coaxial:SMA_Amphenol_132134_Vertical" (at 38.1 76.2 0) (effects (hide yes)))
+		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
 	)
 	(symbol
 		(lib_id "Device:R")
@@ -190,7 +195,7 @@ def _generate_attenuator_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -
 		(uuid "{u_j2}")
 		(property "Reference" "J2" (at 139.7 68.58 0))
 		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "Connector_Coaxial:SMA_Amphenol_132134_Vertical" (at 139.7 76.2 0) (effects (hide yes)))
+		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -232,6 +237,8 @@ def _generate_lowpass_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> s
     c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
     l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
     c2_fp = spec.components.get("C2", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
+    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
 
     return f"""(kicad_sch
 	(version 20231120)
@@ -252,6 +259,7 @@ def _generate_lowpass_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> s
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
 		(property "Reference" "J1" (at 38.1 68.58 0))
 		(property "Value" "SMA_IN" (at 38.1 71.12 0))
+		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "Device:C") (at 63.5 101.6 0) (uuid "{u_c1}")
 		(property "Reference" "C1" (at 68.58 101.6 0))
@@ -271,6 +279,7 @@ def _generate_lowpass_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> s
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
 		(property "Reference" "J2" (at 139.7 68.58 0))
 		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
+		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "power:GND") (at 63.5 114.3 0) (uuid "{u_gnd1}")
 		(property "Reference" "#PWR01" (at 63.5 118.11 0) (effects (hide yes)))
@@ -304,6 +313,8 @@ def _generate_bandpass_lc_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) 
     l1_val = spec.components.get("L1", {}).get("value", "100nH")
     c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
     l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
+    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
 
     return f"""(kicad_sch
 	(version 20231120)
@@ -324,6 +335,7 @@ def _generate_bandpass_lc_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) 
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
 		(property "Reference" "J1" (at 38.1 68.58 0))
 		(property "Value" "SMA_IN" (at 38.1 71.12 0))
+		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "Device:C") (at 76.2 76.2 90) (uuid "{u_c1}")
 		(property "Reference" "C1" (at 76.2 68.58 0))
@@ -338,6 +350,7 @@ def _generate_bandpass_lc_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) 
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
 		(property "Reference" "J2" (at 139.7 68.58 0))
 		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
+		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "power:GND") (at 38.1 86.36 0) (uuid "{u_gnd1}")
 		(property "Reference" "#PWR01" (at 38.1 90.17 0) (effects (hide yes)))
@@ -368,6 +381,8 @@ def _generate_bandpass_shunt_sch(spec: CircuitSpec, root_uuid: str, gen_date: st
     l1_val = spec.components.get("L1", {}).get("value", "100nH")
     c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
     l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
+    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
 
     return f"""(kicad_sch
 	(version 20231120)
@@ -389,6 +404,7 @@ def _generate_bandpass_shunt_sch(spec: CircuitSpec, root_uuid: str, gen_date: st
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
 		(property "Reference" "J1" (at 38.1 68.58 0))
 		(property "Value" "SMA_IN" (at 38.1 71.12 0))
+		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "Device:C") (at 76.2 101.6 0) (uuid "{u_c1}")
 		(property "Reference" "C1" (at 81.28 101.6 0))
@@ -403,6 +419,7 @@ def _generate_bandpass_shunt_sch(spec: CircuitSpec, root_uuid: str, gen_date: st
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
 		(property "Reference" "J2" (at 139.7 68.58 0))
 		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
+		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "power:GND") (at 88.9 121.92 0) (uuid "{u_gnd1}")
 		(property "Reference" "#PWR01" (at 88.9 125.73 0) (effects (hide yes)))
@@ -433,6 +450,9 @@ def _generate_bias_tee_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> 
     l1_val = spec.components.get("L1", {}).get("value", "100nH")
     c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
     l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
+    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    j3_fp = spec.components.get("J3", {}).get("package", "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 
     return f"""(kicad_sch
 	(version 20231120)
@@ -453,6 +473,7 @@ def _generate_bias_tee_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> 
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
 		(property "Reference" "J1" (at 38.1 68.58 0))
 		(property "Value" "RF_IN" (at 38.1 71.12 0))
+		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "Device:C") (at 76.2 76.2 90) (uuid "{u_c1}")
 		(property "Reference" "C1" (at 76.2 68.58 0))
@@ -467,10 +488,12 @@ def _generate_bias_tee_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> 
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 101.6 25.4 90) (uuid "{u_j3}")
 		(property "Reference" "J3" (at 101.6 17.78 0))
 		(property "Value" "DC_IN" (at 101.6 20.32 0))
+		(property "Footprint" "{j3_fp}" (at 101.6 25.4 90) (effects (hide yes)))
 	)
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
 		(property "Reference" "J2" (at 139.7 68.58 0))
 		(property "Value" "RF_DC_OUT" (at 139.7 71.12 0))
+		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
 	)
 	(wire (pts (xy 38.1 76.2) (xy 72.39 76.2)))
 	(wire (pts (xy 80.01 76.2) (xy 101.6 76.2)))
@@ -487,6 +510,9 @@ def _generate_generic_rf_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -
     """Fallback generic 2-port RF circuit schematic."""
     u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
     u_r1 = str(uuid.uuid4())
+    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+
     return f"""(kicad_sch
 	(version 20231120)
 	(generator "rf_agent")
@@ -505,6 +531,7 @@ def _generate_generic_rf_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
 		(property "Reference" "J1" (at 38.1 68.58 0))
 		(property "Value" "SMA_IN" (at 38.1 71.12 0))
+		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
 	)
 	(symbol (lib_id "Device:R") (at 88.9 76.2 90) (uuid "{u_r1}")
 		(property "Reference" "R1" (at 88.9 68.58 0))
@@ -513,6 +540,7 @@ def _generate_generic_rf_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -
 	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
 		(property "Reference" "J2" (at 139.7 68.58 0))
 		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
+		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
 	)
 	(wire (pts (xy 38.1 76.2) (xy 85.09 76.2)))
 	(wire (pts (xy 92.71 76.2) (xy 139.7 76.2)))

@@ -23,7 +23,7 @@ In this repository, **the user does NOT run procedural Python scripts**. You (th
 > * **Layer Stackup**: **2-Layer PCB** (`F.Cu` top RF path with coplanar ground pour, `B.Cu` solid reference ground plane).
 > * **Substrate Thickness**: **1.60 mm** ($h = 1.60\text{ mm}$).
 > * **Copper Thickness**: **1 oz** ($35\,\mu\text{m}$ / $0.035\text{ mm}$).
-> * **RF Connectors**: **Standard 50Ω SMA Coaxial Connectors** (`SMA_IN` at port 1, `SMA_OUT` at port 2).
+> * **RF Connectors**: Small 50Ω SMA Edge Mount Connectors from **Samtec** (`SMA-J-P-H-ST-EM1`, footprint `Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount`, `SMA_IN` at port 1, `SMA_OUT` at port 2). Do NOT use Amphenol connectors or pin headers for RF ports.
 > * **Transmission Line**: **50.0Ω Grounded Coplanar Waveguide (CPWG)**:
 >   - Signal trace width: $w = 1.87\text{ mm}$
 >   - Ground clearance gap: $s = 0.40\text{ mm}$

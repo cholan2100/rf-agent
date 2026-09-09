@@ -309,8 +309,8 @@ def parse_custom_circuit(
                 "R1": {"type": "resistor", "value": f"{r_shunt_round}R", "nominal_ohm": r_shunt_round, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Input"},
                 "R2": {"type": "resistor", "value": f"{r_series_round}R", "nominal_ohm": r_series_round, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Series Resistor"},
                 "R3": {"type": "resistor", "value": f"{r_shunt_round}R", "nominal_ohm": r_shunt_round, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Output"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": f"RF Port 1 ({z0:.0f}Ω)"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": f"RF Port 2 ({z0:.0f}Ω)"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": f"RF Port 1 ({z0:.0f}Ω SMA)"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": f"RF Port 2 ({z0:.0f}Ω SMA)"},
             }
         )
         return spec
@@ -352,8 +352,8 @@ def parse_custom_circuit(
                 "C1": {"type": "capacitor", "value": f"{c_val_pf}pF", "nominal_val": c_val_pf * 1e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Shunt Input Capacitor"},
                 "L1": {"type": "inductor", "value": f"{l_val_nh}nH", "nominal_val": l_val_h, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Series Inductor"},
                 "C2": {"type": "capacitor", "value": f"{c_val_pf}pF", "nominal_val": c_val_pf * 1e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Shunt Output Capacitor"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Input"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Output"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Input"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Output"},
             }
         )
 
@@ -400,8 +400,8 @@ def parse_custom_circuit(
                 components={
                     "C1": {"type": "capacitor", "value": f"{c_pf}pF", "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / Johanson", "series": "GRM / High-Q C0G", "role": "Shunt Parallel Capacitor"},
                     "L1": {"type": "inductor", "value": "100nH", "nominal_val": l_h, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Shunt Parallel Inductor"},
-                    "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Input"},
-                    "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Output"},
+                    "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Input"},
+                    "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Output"},
                 }
             )
 
@@ -425,8 +425,8 @@ def parse_custom_circuit(
             components={
                 "C1": {"type": "capacitor", "value": f"{c_pf}pF", "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / Johanson", "series": "GRM / High-Q C0G", "role": "Series Tank Capacitor"},
                 "L1": {"type": "inductor", "value": "100nH", "nominal_val": l_h, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Series Tank Inductor"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Input"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Output"},
+                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Input"},
+                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Output"},
             }
         )
 
@@ -455,9 +455,9 @@ def parse_custom_circuit(
             components={
                 "C1": {"type": "capacitor", "value": "100pF", "nominal_val": 100e-12, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "DC Blocking Capacitor"},
                 "L1": {"type": "inductor", "value": "100nH", "nominal_val": 100e-9, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "RF Choke Inductor"},
-                "J1": {"type": "connector", "value": "RF_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF Port (Pure RF)"},
-                "J2": {"type": "connector", "value": "RF_DC_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "RF+DC Output"},
-                "J3": {"type": "connector", "value": "DC_SUPPLY", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Amphenol RF", "series": "132134", "role": "+5V DC Power Input"},
+                "J1": {"type": "connector", "value": "RF_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port (Pure RF)"},
+                "J2": {"type": "connector", "value": "RF_DC_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF+DC Output"},
+                "J3": {"type": "connector", "value": "DC_SUPPLY", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Molex / Standard", "series": "2.54mm Header", "role": "+5V DC Power Input"},
             }
         )
 
@@ -481,9 +481,9 @@ def parse_custom_circuit(
         substrate_height_mm=h_mm,
         em_sim_type=em_sim_type,
         components={
-            "R1": {"type": "resistor", "value": "50R", "nominal_ohm": 50.0, "package": "Resistor_SMD:R_0805_2012Metric", "role": "Terminating Resistor"},
-            "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Port 1"},
-            "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Port 2"},
+            "R1": {"type": "resistor", "value": "50R", "nominal_ohm": 50.0, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Terminating Resistor"},
+            "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port 1"},
+            "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port 2"},
         }
     )
 
@@ -509,11 +509,11 @@ PRESET_10DB_ATTENUATOR = CircuitSpec(
     power_supply_type="Passive",
     em_sim_type="traces",
     components={
-        "R1": {"type": "resistor", "value": "95.3R", "nominal_ohm": 96.2, "package": "Resistor_SMD:R_0805_2012Metric", "role": "Shunt Input"},
-        "R2": {"type": "resistor", "value": "71.5R", "nominal_ohm": 71.2, "package": "Resistor_SMD:R_0805_2012Metric", "role": "Series Resistor"},
-        "R3": {"type": "resistor", "value": "95.3R", "nominal_ohm": 96.2, "package": "Resistor_SMD:R_0805_2012Metric", "role": "Shunt Output"},
-        "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Port 1 (50Ω)"},
-        "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "role": "RF Port 2 (50Ω)"},
+        "R1": {"type": "resistor", "value": "95.3R", "nominal_ohm": 96.2, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Input"},
+        "R2": {"type": "resistor", "value": "71.5R", "nominal_ohm": 71.2, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Series Resistor"},
+        "R3": {"type": "resistor", "value": "95.3R", "nominal_ohm": 96.2, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Output"},
+        "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port 1 (50Ω SMA)"},
+        "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port 2 (50Ω SMA)"},
     },
     additional_reqs=[
         "50-ohm Controlled Impedance CPWG Traces (w=1.85mm, gap=0.40mm)",

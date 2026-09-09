@@ -102,22 +102,47 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
             raise ValueError(f"Could not load footprint {name} from {p}")
         return fp
 
+    def load_connector_fp(ref: str, default_val: str):
+        comp = spec.components.get(ref, {})
+        val = comp.get("value", default_val)
+        pkg = comp.get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+        if ":" in pkg:
+            lib, mod = pkg.split(":", 1)
+        else:
+            lib, mod = "Connector_Coaxial", "SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount"
+        try:
+            fp = load_fp(lib, mod)
+        except Exception:
+            fp = load_fp("Connector_Coaxial", "SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+            pkg = "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount"
+        fp.SetReference(ref)
+        fp.SetValue(val)
+        return fp, pkg
+
     # 4. Footprints Placement
     # Standard RF layout: Collinear RF signal path along horizontal centerline y = H/2.0
     y_rf = H / 2.0
 
-    # J1: Port 1 Connector at (4.5, y_rf) -> Pin 1 at (4.5, y_rf), Pin 2 at (4.5, y_rf + 2.54)
-    j1 = load_fp("Connector_PinHeader_2.54mm", "PinHeader_1x02_P2.54mm_Vertical")
-    j1.SetReference("J1")
-    j1.SetValue("SMA_IN")
-    j1.SetPosition(pcbnew.VECTOR2I(mm(4.5), mm(y_rf)))
+    # J1: Port 1 Connector (default: Samtec SMA EdgeMount on left PCB edge x = 0)
+    j1, j1_pkg = load_connector_fp("J1", "SMA_IN")
+    is_edge_mount_j1 = "EdgeMount" in j1_pkg or "EM1" in j1_pkg
+    if is_edge_mount_j1:
+        j1.SetPosition(pcbnew.VECTOR2I(mm(2.1), mm(y_rf)))
+        j1.SetOrientationDegrees(180.0)
+    else:
+        j1.SetPosition(pcbnew.VECTOR2I(mm(4.5), mm(y_rf)))
+        j1.SetOrientationDegrees(0.0)
     board.Add(j1)
 
-    # J2: Port 2 Connector at (W - 4.5, y_rf) -> Pin 1 at (W - 4.5, y_rf), Pin 2 at (W - 4.5, y_rf + 2.54)
-    j2 = load_fp("Connector_PinHeader_2.54mm", "PinHeader_1x02_P2.54mm_Vertical")
-    j2.SetReference("J2")
-    j2.SetValue("SMA_OUT")
-    j2.SetPosition(pcbnew.VECTOR2I(mm(W - 4.5), mm(y_rf)))
+    # J2: Port 2 Connector (default: Samtec SMA EdgeMount on right PCB edge x = W)
+    j2, j2_pkg = load_connector_fp("J2", "SMA_OUT")
+    is_edge_mount_j2 = "EdgeMount" in j2_pkg or "EM1" in j2_pkg
+    if is_edge_mount_j2:
+        j2.SetPosition(pcbnew.VECTOR2I(mm(W - 2.1), mm(y_rf)))
+        j2.SetOrientationDegrees(0.0)
+    else:
+        j2.SetPosition(pcbnew.VECTOR2I(mm(W - 4.5), mm(y_rf)))
+        j2.SetOrientationDegrees(0.0)
     board.Add(j2)
 
     # Component refs & types - filter out connectors and mounting holes
@@ -169,15 +194,15 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
 
     # 5. Assign Nets to Pads & 6. Route Controlled Impedance Traces
     def assign_pad(fp, pad_num, net):
-        pad = fp.FindPadByNumber(pad_num)
-        if pad:
-            pad.SetNet(net)
+        for pad in fp.Pads():
+            if pad.GetNumber() == str(pad_num):
+                pad.SetNet(net)
 
-    # J1: Pin 1 = RF_IN, Pin 2 = GND
+    # J1: Pin 1 = RF_IN, Pin 2 (all ground pads) = GND
     assign_pad(j1, "1", net_in)
     assign_pad(j1, "2", net_gnd)
 
-    # J2: Pin 1 = RF_OUT, Pin 2 = GND
+    # J2: Pin 1 = RF_OUT, Pin 2 (all ground pads) = GND
     assign_pad(j2, "1", net_out)
     assign_pad(j2, "2", net_gnd)
 
@@ -201,21 +226,29 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         board.Add(v)
 
     p_j1_1 = j1.FindPadByNumber("1").GetPosition()
-    p_j1_2 = j1.FindPadByNumber("2").GetPosition()
     p_j2_1 = j2.FindPadByNumber("1").GetPosition()
-    p_j2_2 = j2.FindPadByNumber("2").GetPosition()
 
     x_j1, y_j1 = p_j1_1.x / 1e6, p_j1_1.y / 1e6
     x_j2, y_j2 = p_j2_1.x / 1e6, p_j2_1.y / 1e6
 
-    # J1 & J2 GND pin vias
-    x_j1_2, y_j1_2 = p_j1_2.x / 1e6, p_j1_2.y / 1e6
-    route_track(x_j1_2, y_j1_2, x_j1_2, y_j1_2 + 1.2, net_gnd, 0.8)
-    add_via(x_j1_2, y_j1_2 + 1.2)
+    # J1 & J2 GND return stitching vias
+    if is_edge_mount_j1:
+        add_via(4.3, y_rf - 2.825)
+        add_via(4.3, y_rf + 2.825)
+    else:
+        p_j1_2 = j1.FindPadByNumber("2").GetPosition()
+        x_j1_2, y_j1_2 = p_j1_2.x / 1e6, p_j1_2.y / 1e6
+        route_track(x_j1_2, y_j1_2, x_j1_2, y_j1_2 + 1.2, net_gnd, 0.8)
+        add_via(x_j1_2, y_j1_2 + 1.2)
 
-    x_j2_2, y_j2_2 = p_j2_2.x / 1e6, p_j2_2.y / 1e6
-    route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
-    add_via(x_j2_2, y_j2_2 + 1.2)
+    if is_edge_mount_j2:
+        add_via(W - 4.3, y_rf - 2.825)
+        add_via(W - 4.3, y_rf + 2.825)
+    else:
+        p_j2_2 = j2.FindPadByNumber("2").GetPosition()
+        x_j2_2, y_j2_2 = p_j2_2.x / 1e6, p_j2_2.y / 1e6
+        route_track(x_j2_2, y_j2_2, x_j2_2, y_j2_2 + 1.2, net_gnd, 0.8)
+        add_via(x_j2_2, y_j2_2 + 1.2)
 
     if len(c_keys) == 2 and (spec.topology == "bandpass_shunt" or "shunt" in spec.description.lower()):
         # Shunted Parallel LC Tank bandpass filter
@@ -365,14 +398,14 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         add_via(x_c3_2, y_c3_2 + 1.2)
 
     # CPWG Via Fencing along RF Transmission Line
-    # Top fence row at y = y_rf - 2.8 mm
-    for vx in [5.5, 9.0, 12.5, 15.0, 17.5, 21.0, 24.5]:
-        if 2.0 < vx < (W - 2.0):
+    # Top fence row at y = y_rf - 2.8 mm (clear of Samtec pads ending at x=4.2 and W-4.2)
+    for vx in [6.5, 9.5, 12.5, 15.0, 17.5, 20.5, 23.5, 26.5, 28.5]:
+        if 5.0 < vx < (W - 5.0):
             add_via(vx, y_rf - 2.8)
 
     # Bottom fence row at y = y_rf + 5.0 mm
-    for vx in [5.5, 8.0, 13.0, 15.0, 17.0, 22.0, 24.5]:
-        if 2.0 < vx < (W - 2.0):
+    for vx in [6.5, 9.5, 13.0, 15.0, 17.0, 21.0, 24.5, 28.5]:
+        if 5.0 < vx < (W - 5.0):
             add_via(vx, y_rf + 5.0)
 
     # Perimeter ground fence
@@ -413,8 +446,8 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     if len(title_short) > 20:
         title_short = f"{spec.f_0_ghz*1000.0:.0f}MHz LC Bandpass"
     add_text(title_short, W / 2.0, 3.2, size=0.8)
-    add_text("PORT 1", 4.5, 6.0, size=0.8)
-    add_text("PORT 2", W - 4.5, 6.0, size=0.8)
+    add_text("PORT 1", 5.0, 4.5, size=0.8)
+    add_text("PORT 2", W - 5.0, 4.5, size=0.8)
     add_text(f"{spec.z0_ohm:.0f}Ω {spec.trace_mode} w={spec.rf_trace_width_mm:.2f} s={spec.cpwg_gap_mm:.2f}", W / 2.0 - 1.0, H - 3.2, size=0.8)
 
     # 10. Save Board
