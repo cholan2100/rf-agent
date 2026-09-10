@@ -27,6 +27,7 @@ def generate_performance_report(
         progress_callback("Generating engineering performance report and metric tables...")
 
     freqs = sim_data["freqs_ghz"]
+    s11 = sim_data.get("s11", 10.0 ** (sim_data.get("s11_db", np.array([-20.0])) / 20.0))
     s11_db = sim_data["s11_db"]
     s21_db = sim_data["s21_db"]
     k_factor = sim_data["k_factor"]

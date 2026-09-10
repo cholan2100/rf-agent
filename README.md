@@ -290,7 +290,7 @@ rf-agent/
 ├── agent/                          # Autonomous RF workflow engine
 │   ├── __init__.py
 │   ├── workflow.py                 # Master 9-stage orchestrator
-│   ├── spec.py                     # Circuit spec models, presets, RF math
+│   ├── spec.py                     # Circuit spec models, synthesis, RF math
 │   ├── schematic_gen.py            # KiCad 10 schematic synthesis & SVG export
 │   ├── pcb_gen.py                  # CPWG layout, 45° tapers, zone fill & DRC
 │   ├── renderer.py                 # Headless raytraced 3D renders (Iso, Top, Bottom)

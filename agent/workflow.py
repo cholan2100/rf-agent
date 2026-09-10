@@ -9,7 +9,7 @@ import json
 import time
 import argparse
 from typing import Dict, Any, Optional, List
-from .spec import CircuitSpec, parse_custom_circuit, PRESETS, PRESET_10DB_ATTENUATOR
+from .spec import CircuitSpec, parse_custom_circuit
 from .schematic_gen import generate_schematic
 from .pcb_gen import generate_pcb
 from .renderer import render_3d_pcb
@@ -145,6 +145,8 @@ def execute_workflow(
         em_res = run_em_simulation(spec, output_dir)
         s2p_path = em_res["s2p_path"]
         results["stages"]["em"] = em_res
+        if verbose:
+            print(f"✔ Task 5 Deliverables: {s2p_path} (EM Touchstone dataset)")
 
     # Stage 6 & 7: Qucs Co-Simulation
     if "qucs" in active_stages and os.path.exists(s2p_path):
@@ -157,6 +159,8 @@ def execute_workflow(
             "dat_path": qucs_res["dat_path"],
             "qucs_success": qucs_res["qucs_solver_success"]
         }
+        if verbose:
+            print(f"✔ Task 6 Deliverables: {qucs_res['dat_path']} (Qucsator RF simulation dataset)")
 
     # Ensure sim_data is available for downstream charts/report even if qucs stage wasn't executed in this run
     from .qucs_sim import _parse_simulation_data
@@ -261,7 +265,7 @@ def main():
     parser = argparse.ArgumentParser(description="RF AI Suite - Headless Agent Workflow Engine")
     parser.add_argument("--desc", type=str, help="Natural language description of the RF circuit")
     parser.add_argument("--spec-file", type=str, help="Path to existing spec.json")
-    parser.add_argument("--preset", type=str, choices=["1", "2", "3"], help="Preset number (1: 10dB Attenuator, 2: 2.4GHz Filter, 3: Wilkinson)")
+    parser.add_argument("--name", type=str, default=None, help="Custom project name")
     parser.add_argument("--f0", type=float, default=1.5, help="Center frequency in GHz")
     parser.add_argument("--z0", type=float, default=50.0, help="System impedance in Ohms")
     parser.add_argument("--substrate", type=str, default="FR4", help="Laminate name")
@@ -278,8 +282,6 @@ def main():
     spec = None
     if args.spec_file and os.path.exists(args.spec_file):
         spec = load_spec_from_json(args.spec_file)
-    elif args.preset:
-        spec = PRESETS.get(args.preset, PRESET_10DB_ATTENUATOR)
     elif args.desc:
         spec = parse_custom_circuit(
             description=args.desc,
@@ -293,9 +295,14 @@ def main():
             h_mm=args.h,
             em_sim_type=args.em_mode
         )
+        if args.name:
+            spec.name = args.name
     else:
-        # Default to 10 dB attenuator
-        spec = PRESET_10DB_ATTENUATOR
+        parser.error(
+            "A circuit description (--desc '<description>') or an existing specification file "
+            "(--spec-file <path>) is required. Presets have been removed; "
+            "every circuit must be synthesized from scratch based on user requirements."
+        )
 
     stages = args.stages.split(",") if args.stages else None
     results = execute_workflow(spec, project_root=args.output_dir, stages=stages, verbose=not args.json)
