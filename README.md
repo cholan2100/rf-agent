@@ -311,8 +311,7 @@ rf-agent/
 │   ├── bin/                        # Cross-platform launchers (rf-run, rf-bash, rf-gui)
 │   ├── docker-compose.yml          # Container configuration
 │   └── Dockerfile                  # Container toolchain definition
-├── AGENT.md                        # Autonomous agent operating handbook
-├── AGENTS.md                       # Handbook alias for agent loaders
+├── AGENTS.md                       # Autonomous agent operating handbook (Agentic AI Standard)
 ├── SKILLS.md                       # RF engineering skills catalog
 ├── .gitmodules                     # Git submodule configuration
 ├── requirements.txt                # Python RF & scientific dependencies

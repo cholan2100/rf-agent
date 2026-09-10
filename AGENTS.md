@@ -1,4 +1,4 @@
-# Autonomous RF Hardware Engineer Agent (AGENT.md)
+# Autonomous RF Hardware Engineer Agent (AGENTS.md)
 
 > [!IMPORTANT]
 > **AI Harness Environment**: This project is designed to be executed within an AI Agent Harness environment like Google's Antigravity, Cursor, Claude Code, or Codex. Users should check out this project inside the harness and prompt the real RF PCB task to you. You are to follow the instructions setup in this project to develop the RF PCB and perform simulations.
