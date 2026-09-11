@@ -15,7 +15,7 @@ class RFSaasClient:
     """Client for communicating with the Hosted RF Suite SaaS service."""
 
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None):
-        self.base_url = (base_url or os.getenv("RF_SAAS_URL", "http://localhost:8000")).rstrip("/")
+        self.base_url = (base_url or os.getenv("RF_SAAS_URL", "http://127.0.0.1:8000")).rstrip("/")
         self.api_key = api_key or os.getenv("RF_SAAS_API_KEY", "")
 
     def _request(
@@ -40,7 +40,7 @@ class RFSaasClient:
         req = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
 
         try:
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            with urllib.request.urlopen(req, timeout=600) as resp:
                 if raw_response:
                     return resp.read()
                 body = resp.read().decode("utf-8")

@@ -34,26 +34,27 @@ def generate_schematic(spec: CircuitSpec, output_dir: str, progress_callback=Non
         progress_callback("Synthesizing schematic S-expression netlist and symbols...")
 
     # Generate schematic text depending on topology
-    if spec.topology == "attenuator":
+    desc_str = (spec.description + " " + spec.name + " " + spec.title).lower()
+    if spec.topology in ["attenuator", "pad"] or "attenuat" in desc_str:
         content = _generate_attenuator_sch(spec, sch_uuid, gen_date)
-    elif spec.topology == "lowpass":
+    elif spec.topology in ["lowpass", "lpf"] or "low pass" in desc_str or "lowpass" in desc_str or "lpf" in desc_str:
         content = _generate_lowpass_sch(spec, sch_uuid, gen_date)
-    elif spec.topology == "highpass":
+    elif spec.topology in ["highpass", "hpf"] or "high pass" in desc_str or "highpass" in desc_str or "hpf" in desc_str:
         content = _generate_highpass_sch(spec, sch_uuid, gen_date)
-    elif spec.topology == "bandpass_shunt" or (spec.topology in ["bandpass", "bpf"] and "shunt" in spec.description.lower()):
+    elif spec.topology == "bandpass_shunt" or ((spec.topology in ["bandpass", "bpf"] or "band pass" in desc_str or "bandpass" in desc_str) and "shunt" in desc_str):
         content = _generate_bandpass_shunt_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["bandpass", "bpf"]:
+    elif spec.topology in ["bandpass", "bpf"] or "band pass" in desc_str or "bandpass" in desc_str or "bpf" in desc_str:
         content = _generate_bandpass_lc_sch(spec, sch_uuid, gen_date)
-    elif spec.topology == "bias_tee":
+    elif spec.topology == "bias_tee" or "bias tee" in desc_str or "bias-tee" in desc_str:
         content = _generate_bias_tee_sch(spec, sch_uuid, gen_date)
-    elif spec.topology == "lna":
+    elif spec.topology in ["lna", "amplifier"] or "lna" in desc_str or "amplifier" in desc_str:
         if "Q1" in spec.components:
             content = _generate_bjt_lna_sch(spec, sch_uuid, gen_date)
         else:
             content = _generate_lna_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["calibration_load", "load"]:
+    elif spec.topology in ["calibration_load", "load", "termination"] or "load" in desc_str or "termination" in desc_str:
         content = _generate_calibration_load_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["through", "transmission_line"]:
+    elif spec.topology in ["through", "transmission_line"] or "through" in desc_str:
         content = _generate_through_line_sch(spec, sch_uuid, gen_date)
     else:
         content = _generate_generic_rf_sch(spec, sch_uuid, gen_date)

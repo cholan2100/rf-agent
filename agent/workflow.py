@@ -10,15 +10,6 @@ import time
 import argparse
 from typing import Dict, Any, Optional, List
 from .spec import CircuitSpec, parse_custom_circuit
-from .schematic_gen import generate_schematic
-from .pcb_gen import generate_pcb
-from .renderer import render_3d_pcb
-from .freecad_gen import generate_freecad_project
-from .em_solver import run_em_simulation
-from .qucs_sim import run_qucs_simulation
-from .chart_gen import render_rf_charts
-from .report_gen import generate_performance_report
-from .gerber_pack import package_gerbers
 
 
 ALL_STAGES = ["schematic", "pcb", "render", "cad", "em", "qucs", "charts", "gerbers", "report"]
@@ -36,6 +27,17 @@ def execute_workflow(
     active_stages = set(stages if stages else ALL_STAGES)
     output_dir = os.path.join(project_root, spec.name)
     os.makedirs(output_dir, exist_ok=True)
+
+    from .schematic_gen import generate_schematic
+    from .pcb_gen import generate_pcb
+    from .renderer import render_3d_pcb
+    from .freecad_gen import generate_freecad_project
+    from .em_solver import run_em_simulation
+    from .qucs_sim import run_qucs_simulation, _parse_simulation_data
+    from .chart_gen import render_rf_charts
+    from .report_gen import generate_performance_report
+    from .gerber_pack import package_gerbers
+
 
     # 1. Persist CircuitSpec JSON for agent inspection and reproducibility
     spec_json_path = os.path.join(output_dir, "spec.json")
