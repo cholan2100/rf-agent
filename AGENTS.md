@@ -66,60 +66,73 @@ All tools inside the container are executed from the repository root via the cro
 >
 > 3. **IF THE LAUNCHER FILE EXISTS**: Gate 1 passes — proceed directly to Gate 2 (Step 0.2).
 
-### Gate 2 (Step 0.2): Execution Backend Readiness (Local Docker vs AWS EC2)
+### Gate 2 (Step 0.2): Execution Backend Selection & Readiness (Local Docker vs AWS EC2)
 
-#### Backend Selection: Local Docker vs AWS Cloud
-Check whether `RF_BACKEND=aws` is configured in `.env` (or environment):
-* **If `RF_BACKEND=aws` (or `AWS_INSTANCE_ID` is set)**:
-  Compute is offloaded to the AWS EC2 instance. Verify AWS connectivity and host status:
+> [!IMPORTANT]
+> **Default Execution Backend**: `RF_BACKEND=local` is the **canonical default**.
+> During repository bootstrapping / initialization (Turn 0), the AI Agent MUST check with the user via `ask_question` to confirm whether to use Local or AWS `rf-suite`. **Local execution is always recommended** for rapid iteration, zero cloud fees, and direct hardware access.
+
+#### Step 2a: Mandatory User Backend Confirmation via `ask_question`
+Unless the user's initial prompt explicitly declared which backend to run on (e.g. "run using AWS" or "run locally"), the AI Agent MUST invoke the interactive modal `ask_question` during Turn 0 bootstrap before verifying or launching any solvers:
+
+- **Question**: `"Which RF toolchain execution backend would you like to use for simulations and PCB design?"`
+- **Options**:
+  - `(Recommended) Local rf-suite (Docker on workstation — faster for single runs, zero cloud costs)`
+  - `AWS rf-suite (EC2 remote container — offloads heavy compute to cloud instance)`
+
+#### Step 2b: Execution Backend Verification Based on User Selection
+
+* **If User Selects Local (`RF_BACKEND=local` - Recommended)**:
+  Ensure `RF_BACKEND=local` is active in `.env`. The EDA and simulation suite will execute locally inside the developer workstation's Docker container. Follow the local Docker verification protocol below.
+
+  ##### Docker Host Architecture Rule (Windows vs Linux - Local Mode)
+  > [!IMPORTANT]
+  > **Docker Daemon Environment**:
+  > * **On Windows**: Docker is by default located and managed inside the **WSL Debian** environment (`wsl -d Debian`). When running Docker commands directly on Windows, execute them via WSL: `wsl -d Debian bash -c "docker ..."`. The Windows batch scripts in `rf-suite\bin\` (`rf-run.bat`, `rf-bash.bat`, `rf-gui.bat`) automatically detect this and target the WSL Debian container environment.
+  > * **On Linux**: Docker is typically native and accessible directly in the standard system PATH (`docker ...`).
+
+  Check if the `rf-suite:latest` Docker image is present:
+  ```bash
+  # On Windows (Docker is in WSL Debian by default):
+  wsl -d Debian bash -c "docker images -q rf-suite:latest"
+  # Or test via the batch launcher: rf-suite\bin\rf-run.bat python --version
+
+  # On Linux (Native Docker):
+  docker images -q rf-suite:latest
+  ```
+
+  ##### If Image is Missing (Not Ready - Local Mode) -> Auto-Build Protocol
+  If the image ID is empty or the command fails:
+  1. **INFORM THE USER IMMEDIATELY IN CHAT**:
+     Post a clear, reassuring status message before starting the build:
+     > *"The `rf-suite` Docker toolchain environment is not built yet. Building the Docker image now via `docker compose build` in `rf-suite/`... This will compile and configure KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python dependencies. I will keep you updated as the build progresses."*
+  2. **TRIGGER DOCKER COMPOSE BUILD**:
+     ```bash
+     # On Windows (Docker in WSL Debian): compute the WSL path of <repo-root> first
+     # (e.g. D:\Workspace\rf\rf-agent -> /mnt/d/Workspace/rf/rf-agent), then:
+     wsl -d Debian bash -c "cd <wsl-path-of-repo-root>/rf-suite && docker compose build"
+     # Or if native Docker CLI is in Windows PATH:
+     cd rf-suite && docker compose build
+
+     # On Linux (Native Docker):
+     cd rf-suite && docker compose build
+     ```
+  3. **NOTIFY USER ON COMPLETION**:
+     Once the build completes successfully, update the user:
+     > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
+
+* **If User Selects AWS (`RF_BACKEND=aws`)**:
+  Ensure `RF_BACKEND=aws` is active in `.env`. Compute is offloaded to the AWS EC2 instance. Verify AWS connectivity and host status:
   ```bash
   # Windows:
   rf-suite\bin\rf-aws.bat status
   # Linux / WSL:
   ./rf-suite/bin/rf-aws status
   ```
-  If the AWS instance is `stopped`, it will automatically start upon the first command execution (or run `rf-aws start`). Proceed directly to Gate 3.
+  - If the AWS instance is `stopped`, it will automatically start upon the first command execution (or run `rf-aws start`).
+  - If AWS credentials or instance ID are not yet configured in `.env`, guide the user to provide them or offer automated deployment (`deploy_stack.py` or CloudFormation).
 
-* **If `RF_BACKEND=local` (Default)**:
-  Docker is hosted locally on the developer's workstation. Follow the local Docker verification protocol below.
-
-#### Docker Host Architecture Rule (Windows vs Linux - Local Mode)
-> [!IMPORTANT]
-> **Docker Daemon Environment**:
-> * **On Windows**: Docker is by default located and managed inside the **WSL Debian** environment (`wsl -d Debian`). When running Docker commands directly on Windows, execute them via WSL: `wsl -d Debian bash -c "docker ..."`. The Windows batch scripts in `rf-suite\bin\` (`rf-run.bat`, `rf-bash.bat`, `rf-gui.bat`) automatically detect this and target the WSL Debian container environment.
-> * **On Linux**: Docker is typically native and accessible directly in the standard system PATH (`docker ...`).
-
-Check if the `rf-suite:latest` Docker image is present:
-```bash
-# On Windows (Docker is in WSL Debian by default):
-wsl -d Debian bash -c "docker images -q rf-suite:latest"
-# Or test via the batch launcher: rf-suite\bin\rf-run.bat python --version
-
-# On Linux (Native Docker):
-docker images -q rf-suite:latest
-```
-
-#### If Image is Missing (Not Ready - Local Mode) -> Auto-Build Protocol
-If the image ID is empty or the command fails:
-1. **INFORM THE USER IMMEDIATELY IN CHAT**:
-   Post a clear, reassuring status message before starting the build:
-   > *"The `rf-suite` Docker toolchain environment is not built yet. Building the Docker image now via `docker compose build` in `rf-suite/`... This will compile and configure KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python dependencies. I will keep you updated as the build progresses."*
-2. **TRIGGER DOCKER COMPOSE BUILD**:
-   ```bash
-   # On Windows (Docker in WSL Debian): compute the WSL path of <repo-root> first
-   # (e.g. D:\Workspace\rf\rf-agent -> /mnt/d/Workspace/rf/rf-agent), then:
-   wsl -d Debian bash -c "cd <wsl-path-of-repo-root>/rf-suite && docker compose build"
-   # Or if native Docker CLI is in Windows PATH:
-   cd rf-suite && docker compose build
-
-   # On Linux (Native Docker):
-   cd rf-suite && docker compose build
-   ```
-3. **NOTIFY USER ON COMPLETION**:
-   Once the build completes successfully, update the user:
-   > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
-
-#### If Image or AWS Host is Ready
+#### If Selected Backend is Ready
 Gate 2 passes — proceed directly to Gate 3.
 
 ### Gate 3 (Step 0.3): Mandatory Post-Initialization Invitation Greeting Protocol

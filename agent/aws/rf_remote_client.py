@@ -74,7 +74,7 @@ def get_aws_config() -> Dict[str, str]:
 def is_aws_mode() -> bool:
     """Returns True if AWS backend is active."""
     cfg = get_aws_config()
-    return cfg["backend"] == "aws" or bool(cfg["instance_id"])
+    return cfg["backend"] == "aws"
 
 
 def check_instance_status(instance_id: Optional[str] = None, region: Optional[str] = None) -> str:
