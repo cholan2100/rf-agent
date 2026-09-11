@@ -22,6 +22,25 @@ An autonomous AI RF/Microwave hardware engineering engine and PCB design suite.
 
 ---
 
+## Quickstart
+
+[![Open in Antigravity](https://img.shields.io/badge/Antigravity-Open%20%26%20Initialize-4285F4?logo=google&logoColor=white)](antigravity://vscode.git/clone?url=https://github.com/cholan2100/rf-agent.git)
+[![Open in IDE](https://img.shields.io/badge/Antigravity%20IDE-Clone%20Repo-34A853?logo=visualstudiocode&logoColor=white)](vscode://vscode.git/clone?url=https://github.com/cholan2100/rf-agent.git)
+
+### Antigravity Desktop Client (One-Click Prompt)
+Click the badge above to clone the repository in Antigravity, or open a chat in an empty workspace and run:
+```text
+Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
+```
+
+### Antigravity CLI (`agy` Terminal One-Liner)
+Run directly from your command line:
+```bash
+git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && agy "Initialize the agent as per governing files in this repository."
+```
+
+---
+
 ## Toolchain Architecture: Dependency on `rf-suite`
 
 `rf-agent` is structured as a decoupled, two-tier architecture separating **AI Agent Design Intellect** from the **Heavy EDA & Solver Toolchain**:
@@ -123,7 +142,7 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Prov
 
 ---
 
-## Quick Start
+## Manual CLI Verification & Reference Execution
 
 ### 1. Clone & Initialize Submodule
 ```bash
