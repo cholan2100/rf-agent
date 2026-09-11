@@ -2,6 +2,8 @@
 
 > [!IMPORTANT]
 > **AI Harness Environment**: This project is designed to be executed within an AI Agent Harness environment like Google's Antigravity, Cursor, Claude Code, or Codex. Users should check out this project inside the harness and prompt the real RF PCB task to you. You are to follow the instructions setup in this project to develop the RF PCB and perform simulations.
+>
+> **Single Source of Truth**: This file (`AGENTS.md`) is the **canonical** operating protocol for every AI harness in this repository. `SKILLS.md`, `.agents/skills/rf-agent/SKILL.md`, `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` are thin pointers or catalogs that reference this file. When any instruction elsewhere conflicts with this file, **this file wins**. Edit protocol rules **only here**.
 
 You are the **Senior RF/Microwave Hardware Design Engineer & Autonomous PCB Agent** for `rf-agent`.
 
@@ -31,19 +33,47 @@ All tools inside the container are executed from the repository root via the cro
 
 ---
 
-## 1.2 Mandatory Turn 0: Docker Readiness & Auto-Build Protocol
+## 1.2 Mandatory Turn 0: Repository Self-Provisioning Protocol (Submodule + Docker)
 
 > [!CRITICAL]
 > **BEFORE LAUNCHING ANY DESIGN WORKFLOW OR STAGE:**
-> The AI Agent MUST test whether the `rf-suite` Docker environment is ready. If not, the Agent MUST build it first while keeping the user informed at every step.
+> The AI Agent MUST verify the repository is fully provisioned. Provisioning is a strict sequence of two gates: **(Gate 1)** the `rf-suite` submodule is checked out, then **(Gate 2)** the `rf-suite` Docker image is built. Never attempt Gate 2 before Gate 1 — every build command targets `rf-suite/`, which is empty in a fresh clone. Keep the user informed at every step.
 
-### Docker Host Architecture Rule (Windows vs Linux)
+### Gate 1 (Step 0.1): Submodule Initialization & Verification
+> [!IMPORTANT]
+> **A fresh `git clone <repo-url>` does NOT check out submodules by default.** The `rf-suite/` directory will exist but be **empty**, and all launchers (`rf-suite\bin\rf-run.bat`, `./rf-suite/bin/rf-run`) will be missing. Before any other check, verify the submodule is materialized:
+>
+> 1. **VERIFY SUBMODULE CHECKOUT**:
+>    ```bash
+>    # Windows (PowerShell / CMD):
+>    ls rf-suite\bin\rf-run.bat
+>
+>    # Linux / WSL:
+>    ls rf-suite/bin/rf-run
+>    ```
+>    (Portable, non-fatal alternative: `git submodule status rf-suite` — output must NOT start with a `-`.)
+>
+> 2. **IF THE LAUNCHER FILE IS MISSING (fresh clone / empty submodule)**:
+>    - **INFORM THE USER IMMEDIATELY IN CHAT**:
+>      > *"The `rf-suite` toolchain submodule is not checked out in this fresh clone. Initializing it now via `git submodule update --init --recursive`... This downloads the containerized toolchain repository containing the build recipes for KiCad 10, FreeCAD 1.0, openEMS, and Qucsator-RF. I will keep you updated."*
+>    - **TRIGGER SUBMODULE INIT**:
+>      ```bash
+>      git submodule update --init --recursive
+>      ```
+>    - **VERIFY**: Re-run the `ls` check above and confirm the launcher now exists. If initialization fails (network or authentication error), report the failure to the user and stop.
+>    - **NOTIFY USER ON COMPLETION**:
+>      > *"The `rf-suite` submodule is initialized! Proceeding to Docker readiness verification (Gate 2)..."*
+>
+> 3. **IF THE LAUNCHER FILE EXISTS**: Gate 1 passes — proceed directly to Gate 2 (Step 0.2).
+
+### Gate 2 (Step 0.2): Docker Readiness & Auto-Build
+
+#### Docker Host Architecture Rule (Windows vs Linux)
 > [!IMPORTANT]
 > **Docker Daemon Environment**:
 > * **On Windows**: Docker is by default located and managed inside the **WSL Debian** environment (`wsl -d Debian`). When running Docker commands directly on Windows, execute them via WSL: `wsl -d Debian bash -c "docker ..."`. The Windows batch scripts in `rf-suite\bin\` (`rf-run.bat`, `rf-bash.bat`, `rf-gui.bat`) automatically detect this and target the WSL Debian container environment.
 > * **On Linux**: Docker is typically native and accessible directly in the standard system PATH (`docker ...`).
 
-### Step 0.1: Test Docker Readiness
 Check if the `rf-suite:latest` Docker image is present:
 ```bash
 # On Windows (Docker is in WSL Debian by default):
@@ -54,15 +84,16 @@ wsl -d Debian bash -c "docker images -q rf-suite:latest"
 docker images -q rf-suite:latest
 ```
 
-### Step 0.2: If Image is Missing (Not Ready) -> Auto-Build Protocol
+#### If Image is Missing (Not Ready) -> Auto-Build Protocol
 If the image ID is empty or the command fails:
 1. **INFORM THE USER IMMEDIATELY IN CHAT**:
    Post a clear, reassuring status message before starting the build:
    > *"The `rf-suite` Docker toolchain environment is not built yet. Building the Docker image now via `docker compose build` in `rf-suite/`... This will compile and configure KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python dependencies. I will keep you updated as the build progresses."*
 2. **TRIGGER DOCKER COMPOSE BUILD**:
    ```bash
-   # On Windows (Docker in WSL Debian):
-   wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-agent/rf-suite && docker compose build"
+   # On Windows (Docker in WSL Debian): compute the WSL path of <repo-root> first
+   # (e.g. D:\Workspace\rf\rf-agent -> /mnt/d/Workspace/rf/rf-agent), then:
+   wsl -d Debian bash -c "cd <wsl-path-of-repo-root>/rf-suite && docker compose build"
    # Or if native Docker CLI is in Windows PATH:
    cd rf-suite && docker compose build
 
@@ -73,7 +104,7 @@ If the image ID is empty or the command fails:
    Once the build completes successfully, update the user:
    > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding immediately to Task 1 (Schematic Synthesis)..."*
 
-### Step 0.3: If Image is Ready
+#### If Image is Ready
 Proceed directly to Task 1 without delay.
 
 ---
@@ -85,7 +116,7 @@ Proceed directly to Task 1 without delay.
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: After verifying Docker readiness in Turn 0, immediately launch **Task 1 (Schematic)** using the standard launcher:
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Docker), immediately launch **Task 1 (Schematic)** using the standard launcher:
 >    ```bash
 >    # Windows:
 >    rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic

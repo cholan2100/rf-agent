@@ -63,11 +63,24 @@ The Docker container daemon location depends on the host operating system:
 
 ---
 
-## Docker Readiness & Auto-Build Protocol for Agents
+## Repository Self-Provisioning Protocol for Agents
 
-Autonomous agents and automated CI runners must adhere to the **Turn 0 Readiness Protocol**:
+Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Provisioning Protocol** (canonical, detailed version: [`AGENTS.md` §1.2](AGENTS.md)):
 
-1. **Test Docker Readiness**:
+1. **Gate 1 — Submodule Initialization**:
+   A fresh `git clone` does **not** check out submodules by default, so `rf-suite/` will be empty and the launchers will be missing. Verify and bootstrap:
+   ```bash
+   # Verify (portable, non-fatal):
+   git submodule status rf-suite   # must NOT start with a '-'
+   # Or check for the launcher directly:
+   ls rf-suite/bin/rf-run          # Windows: ls rf-suite\bin\rf-run.bat
+
+   # If missing, initialize and verify:
+   git submodule update --init --recursive
+   ```
+   > Tip for users: cloning with `git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git` pre-satisfies Gate 1.
+
+2. **Gate 2 — Docker Readiness**:
    Before launching any design stage (e.g. Task 1 Schematic), the agent tests whether the `rf-suite` Docker image is available:
    ```bash
    # On Windows (Docker is in WSL Debian by default):
@@ -77,22 +90,19 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Readiness
    # On Linux (Native Docker):
    docker images -q rf-suite:latest
    ```
+   If NOT ready (image missing), the agent **informs the user in chat immediately**, then triggers the build:
+   ```bash
+   # On Windows (Docker in WSL Debian): compute the WSL path of <repo-root> first
+   # (e.g. D:\Workspace\rf\rf-agent -> /mnt/d/Workspace/rf/rf-agent), then:
+   wsl -d Debian bash -c "cd <wsl-path-of-repo-root>/rf-suite && docker compose build"
+   # Or if native Docker CLI is in Windows PATH:
+   cd rf-suite && docker compose build
 
-2. **If NOT Ready (Image Missing or Needs Build)**:
-   - The agent **informs the user in chat immediately**:
-     > *"The `rf-suite` Docker environment is not built yet. Building the Docker image now via `rf-suite/docker-compose.yml`... This builds the container with KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python toolchain. I will keep you updated on progress."*
-   - The agent triggers the build:
-     ```bash
-      # On Windows (Docker in WSL Debian):
-      wsl -d Debian bash -c "cd /mnt/d/Workspace/rf/rf-agent/rf-suite && docker compose build"
-      # Or if native Docker CLI is in Windows PATH:
-      cd rf-suite && docker compose build
-
-      # On Linux (Native Docker):
-      cd rf-suite && docker compose build
-      ```
-    - When the build finishes, the agent notifies the user:
-      > *"The `rf-suite` Docker environment has been built and verified! Proceeding to Task 1 (Schematic Synthesis)..."*
+   # On Linux (Native Docker):
+   cd rf-suite && docker compose build
+   ```
+   When the build finishes, the agent notifies the user:
+   > *"The `rf-suite` Docker environment has been built and verified! Proceeding to Task 1 (Schematic Synthesis)..."*
 
 3. **If Ready**:
    The agent proceeds directly into circuit synthesis.
