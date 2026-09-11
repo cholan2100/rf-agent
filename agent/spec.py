@@ -122,6 +122,22 @@ class CircuitSpec:
     def cpwg_delay_ps_per_mm(self) -> float:
         return self.propagation_delay_ps_mm
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Converts the CircuitSpec dataclass into a JSON-serializable dictionary."""
+        from dataclasses import asdict
+        d = asdict(self)
+        d["rf_trace_width_mm"] = self.rf_trace_width_mm
+        d["effective_dielectric_constant"] = self.effective_dielectric_constant
+        d["propagation_delay_ps_mm"] = self.propagation_delay_ps_mm
+        return d
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "CircuitSpec":
+        """Instantiates a CircuitSpec from a dictionary."""
+        valid_fields = cls.__dataclass_fields__.keys()
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
+
 
 # ----------------------------------------------------------------------
 # Analytical RF Transmission Line Synthesis Functions

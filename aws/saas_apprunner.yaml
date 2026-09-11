@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RF Suite Hosted SaaS Microservice Stack (AWS App Runner + ECR + S3)'
+
+Parameters:
+  ServiceName:
+    Type: String
+    Default: rf-suite-saas
+    Description: Name of the App Runner service
+  
+  Cpu:
+    Type: String
+    Default: '2 vCPU'
+    AllowedValues:
+      - '1 vCPU'
+      - '2 vCPU'
+      - '4 vCPU'
+    Description: Compute allocation for the container instance
+
+  Memory:
+    Type: String
+    Default: '4 GB'
+    AllowedValues:
+      - '2 GB'
+      - '3 GB'
+      - '4 GB'
+      - '8 GB'
+      - '12 GB'
+    Description: Memory allocation for the container instance
+
+  ApiKeySecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Optional secret API Key to protect SaaS endpoints (leave blank for open)
+
+Resources:
+  # 1. Dedicated ECR Repository for RF Suite Container Image
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ServiceName
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep only latest 3 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 3
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+  # 2. S3 Workspace Bucket for Persistent Project Deliverables
+  WorkspaceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ServiceName}-workspace-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  # 3. IAM Role for App Runner to Pull from ECR
+  AppRunnerAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-AppRunnerAccessRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: build.apprunner.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+
+  # 4. IAM Instance Role for the Running Container (S3 access)
+  AppRunnerInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-InstanceRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: tasks.apprunner.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3WorkspaceAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub '${WorkspaceBucket.Arn}/*'
+                  - !GetAtt WorkspaceBucket.Arn
+
+  # 5. Managed AWS App Runner Service
+  AppRunnerService:
+    Type: AWS::AppRunner::Service
+    Properties:
+      ServiceName: !Ref ServiceName
+      InstanceConfiguration:
+        Cpu: !Ref Cpu
+        Memory: !Ref Memory
+        InstanceRoleArn: !GetAtt AppRunnerInstanceRole.Arn
+      SourceConfiguration:
+        AuthenticationConfiguration:
+          AccessRoleArn: !GetAtt AppRunnerAccessRole.Arn
+        AutoDeploymentsEnabled: true
+        ImageRepository:
+          ImageIdentifier: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ServiceName}:latest'
+          ImageRepositoryType: ECR
+          ImageConfiguration:
+            Port: '8000'
+            RuntimeEnvironmentVariables:
+              - Name: RF_SAAS_API_KEY
+                Value: !Ref ApiKeySecret
+              - Name: RF_PROJECTS_ROOT
+                Value: /workspace/projects
+              - Name: S3_WORKSPACE_BUCKET
+                Value: !Ref WorkspaceBucket
+      HealthCheckConfiguration:
+        Protocol: HTTP
+        Path: /health
+        Interval: 10
+        Timeout: 5
+        HealthyThreshold: 1
+        UnhealthyThreshold: 3
+
+Outputs:
+  ServiceUrl:
+    Description: Public HTTPS Endpoint for RF Suite SaaS API
+    Value: !Sub 'https://${AppRunnerService.ServiceUrl}'
+    Export:
+      Name: !Sub '${ServiceName}-Url'
+
+  SwaggerDocsUrl:
+    Description: Interactive OpenAPI Swagger Documentation
+    Value: !Sub 'https://${AppRunnerService.ServiceUrl}/docs'
+
+  EcrRepositoryUri:
+    Description: Amazon ECR Image URI for container push
+    Value: !GetAtt EcrRepository.RepositoryUri
+
+  WorkspaceBucketName:
+    Description: S3 Bucket storing all cloud projects and simulation datasets
+    Value: !Ref WorkspaceBucket

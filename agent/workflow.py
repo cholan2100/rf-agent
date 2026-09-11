@@ -276,6 +276,7 @@ def main():
     parser.add_argument("--em-mode", type=str, choices=["traces", "full_board"], default="traces")
     parser.add_argument("--stages", type=str, default=None, help="Comma-separated list of stages to run")
     parser.add_argument("--output-dir", type=str, default="projects", help="Output directory")
+    parser.add_argument("--backend", type=str, choices=["local", "saas", "aws"], default=os.getenv("RF_BACKEND", "local"), help="Execution backend (local, saas, aws)")
     parser.add_argument("--json", action="store_true", help="Print only JSON summary to stdout")
     args = parser.parse_args()
 
@@ -305,6 +306,22 @@ def main():
         )
 
     stages = args.stages.split(",") if args.stages else None
+
+    # SaaS Hosted Execution path
+    if args.backend.lower() == "saas":
+        from agent.saas.client import RFSaasClient
+        client = RFSaasClient()
+        if not args.json:
+            print(f"[RF SaaS Client] Dispatching stages {stages or 'ALL'} to Hosted API ({client.base_url})...")
+        saas_res = client.run_stages(spec.name, stages=stages, spec=spec.to_dict())
+        local_proj = os.path.join(args.output_dir, spec.name)
+        client.sync_all_artifacts(spec.name, local_proj)
+        if not args.json:
+            print(f"✔ SaaS execution complete! Artifacts synced to {local_proj}")
+        if args.json:
+            print(json.dumps(saas_res, indent=2))
+        return
+
     results = execute_workflow(spec, project_root=args.output_dir, stages=stages, verbose=not args.json)
 
     if args.json:
