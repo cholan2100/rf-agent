@@ -9,10 +9,19 @@ import sys
 import json
 import time
 import shutil
+import shlex
 import subprocess
 import argparse
 import webbrowser
 from typing import Dict, List, Tuple, Optional
+
+try:
+    from .sync_manager import sync_workspace_to_aws, sync_workspace_from_aws
+except ImportError:
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+    from agent.aws.sync_manager import sync_workspace_to_aws, sync_workspace_from_aws
 
 
 def load_env_file(env_path: Optional[str] = None) -> Dict[str, str]:
@@ -283,8 +292,6 @@ def run_remote_command(command_args: List[str], verbose: bool = True) -> int:
     4. Sync deliverables back to local workspace
     5. Return command exit code
     """
-    from .sync_manager import sync_workspace_to_aws, sync_workspace_from_aws
-
     cfg = get_aws_config()
     iid = cfg["instance_id"]
     reg = cfg["region"]
@@ -314,7 +321,7 @@ def run_remote_command(command_args: List[str], verbose: bool = True) -> int:
     sync_workspace_to_aws(verbose=verbose)
 
     # 3. Formulate container command on the remote host
-    escaped_args = " ".join([f"'{a}'" if " " in a else a for a in command_args])
+    escaped_args = shlex.join(command_args)
     container_exec = (
         f"cd {cfg['compose_dir']} && "
         f"docker compose exec -T rf-suite {escaped_args}"
@@ -411,11 +418,9 @@ def main():
         open_gui_tunnel(port=args.port)
 
     elif args.action == "sync-up":
-        from .sync_manager import sync_workspace_to_aws
         sync_workspace_to_aws(verbose=True)
 
     elif args.action == "sync-down":
-        from .sync_manager import sync_workspace_from_aws
         sync_workspace_from_aws(verbose=True)
 
     elif args.action == "host-logs":

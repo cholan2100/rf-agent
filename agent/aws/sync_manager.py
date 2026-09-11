@@ -100,12 +100,28 @@ def sync_workspace_to_aws(project_name: Optional[str] = None, verbose: bool = Tr
                     print(f"[Sync Up] Warning: Local to S3 sync failed: {res.stderr}")
                 return False
 
+        # Also sync agent code to ensure latest workflow logic is on remote host
+        local_agent_dir = os.path.join(repo_root, "agent")
+        s3_agent_dest = f"s3://{cfg['bucket']}/workspace/agent"
+        if os.path.exists(local_agent_dir):
+            cmd_agent = [
+                "aws", "s3", "sync",
+                local_agent_dir, s3_agent_dest,
+                "--region", cfg["region"],
+                "--exclude", "*.pyc",
+                "--exclude", "__pycache__/*",
+                "--delete"
+            ]
+            subprocess.run(cmd_agent, capture_output=True, text=True)
+
         # Instruct EC2 instance to pull from S3
         if cfg["instance_id"] and cfg["remote_method"] == "ssm":
             if verbose:
-                print(f"[Sync Up] Instructing AWS instance {cfg['instance_id']} to pull from S3...")
+                print(f"[Sync Up] Instructing AWS instance {cfg['instance_id']} to pull workspace and agent from S3...")
             remote_cmd = (
                 f"aws s3 sync s3://{cfg['bucket']}/workspace/projects {cfg['remote_workspace']}/projects "
+                f"--region {cfg['region']} --delete && "
+                f"aws s3 sync s3://{cfg['bucket']}/workspace/agent {cfg['remote_workspace']}/agent "
                 f"--region {cfg['region']} --delete"
             )
             from .rf_remote_client import execute_ssm_command
@@ -116,7 +132,7 @@ def sync_workspace_to_aws(project_name: Optional[str] = None, verbose: bool = Tr
                 return False
 
         if verbose:
-            print("[Sync Up] Project sync to AWS complete.")
+            print("[Sync Up] Project and agent code sync to AWS complete.")
         return True
 
     # 2. SSH / SCP-based Synchronization

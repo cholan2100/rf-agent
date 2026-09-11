@@ -26,6 +26,7 @@ rm -rf aws awscliv2.zip
 mkdir -p /opt/rf-agent-host
 cd /opt/rf-agent-host
 git clone --recursive https://github.com/cholan2100/rf-suite.git rf-suite || true
+chmod +x /opt/rf-agent-host/rf-suite/entrypoint.sh
 mkdir -p /opt/rf-agent-host/workspace/projects
 
 cat << 'ENVFILE' > /opt/rf-agent-host/rf-suite/.env
