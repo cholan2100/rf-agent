@@ -24,21 +24,32 @@ An autonomous AI RF/Microwave hardware engineering engine and PCB design suite.
 
 ## Quickstart
 
-[![Open in Antigravity](https://img.shields.io/badge/Antigravity-Open%20%26%20Initialize-4285F4?logo=google&logoColor=white)](antigravity://vscode.git/clone?url=https://github.com/cholan2100/rf-agent.git)
-[![Open in IDE](https://img.shields.io/badge/Antigravity%20IDE-Clone%20Repo-34A853?logo=visualstudiocode&logoColor=white)](vscode://vscode.git/clone?url=https://github.com/cholan2100/rf-agent.git)
+[![Antigravity](https://img.shields.io/badge/Antigravity-Agent%20Native-4285F4?logo=google&logoColor=white)](#1-antigravity-desktop-one-click-prompt)
+[![Git Clone](https://img.shields.io/badge/Git-Recurse%20Submodules-F05032?logo=git&logoColor=white)](#2-antigravity-cli-agy-terminal-one-liner)
 
-### Antigravity Desktop Client (One-Click Prompt)
-Click the badge above to clone the repository in Antigravity, or open a chat in an empty workspace and run:
+### 1. Antigravity Desktop (One-Click Prompt)
+Open **Antigravity Desktop**, create a new chat in an empty workspace, and paste:
 ```text
 Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
 ```
+The agent will autonomously clone the repository, bootstrap the toolchain, and greet you with the available design options.
 
-### Antigravity CLI (`agy` Terminal One-Liner)
-Run directly from your command line (interactive mode):
+### 2. Antigravity CLI (`agy` Terminal One-Liner)
+Run directly from your terminal to launch an interactive session:
 ```bash
 git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && agy -i "Initialize the agent as per governing files in this repository."
 ```
 *(Or use `agy -p "<prompt>"` for headless print mode)*
+
+### 3. Antigravity IDE
+1. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>), select **Git: Clone**, and enter:
+   ```text
+   https://github.com/cholan2100/rf-agent.git
+   ```
+2. In the agent sidebar, prompt:
+   ```text
+   Initialize the agent as per governing files in this repository.
+   ```
 
 ---
 
