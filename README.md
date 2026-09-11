@@ -104,10 +104,10 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Prov
    When the build finishes, the agent notifies the user:
    > *"The `rf-suite` Docker environment has been built and verified! Proceeding to Gate 3..."*
 
-3. **Gate 3 — Initialization Completion & User Invitation Greeting**:
+3. **Gate 3 — Mandatory Final Invitation Greeting**:
    Once Gates 1 and 2 pass:
-   - **If a circuit design was already specified upfront**, proceed directly to Task 1 (Schematic Synthesis).
-   - **If repo/agent initialization was completed without an upfront circuit prompt**, the agent presents a final invitation greeting confirming full toolchain readiness and asking what RF circuit to design today, providing concrete example prompts (e.g. *"Bandpass filter for 98mhz FM Radio band using parallel LC tank"*, *"Low Noise amplifier for 137MHz satellite band"*, 10dB attenuators, 50Ω calibration loads; see [`AGENTS.md` §1.2](AGENTS.md)).
+   - **Every time the repository is used to initialize the agent**, the agent concludes its initialization turn by presenting the final invitation greeting asking what RF circuit to design today, with concrete example prompts (e.g. *"Bandpass filter for 98mhz FM Radio band using parallel LC tank"*, *"Low Noise amplifier for 137MHz satellite band"*, 10dB attenuator, 50Ω calibration load, etc.; see [`AGENTS.md` §1.2](AGENTS.md)).
+   - If a circuit design was already specified upfront, the agent delivers the greeting and proceeds immediately to Task 1 (Schematic Synthesis).
 
 ---
 

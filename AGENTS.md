@@ -107,39 +107,42 @@ If the image ID is empty or the command fails:
 #### If Image is Ready
 Gate 2 passes — proceed directly to Gate 3.
 
-### Gate 3 (Step 0.3): Initialization Completion & User Invitation Greeting Protocol
+### Gate 3 (Step 0.3): Mandatory Post-Initialization Invitation Greeting Protocol
+
+> [!CRITICAL]
+> **Mandatory Initialization Conclusion Rule**:
+> Every time this repository is used to initialize the agent (including repository onboarding, environment bootstrap, "Initialize the agent", "Setup the repository", "Verify setup", or whenever Turn 0 provisioning completes), the agent MUST ALWAYS present the final invitation greeting at the conclusion of initialization.
+
 Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2 Docker environment are verified and ready):
 
-1. **If an RF Circuit Design Was Already Prompted Upfront** (e.g. *"Design a 10dB attenuator for 2.4GHz"*):
-   - Notify the user that the environment is ready and immediately proceed to **Task 1 (Schematic Synthesis)** without delay per §1.3:
-     > *"The `rf-suite` toolchain environment is fully verified and ready! Proceeding immediately to Task 1 (Schematic Synthesis)..."*
+1. **Every Time Agent Initialization is Completed**:
+   The agent MUST conclude the initialization turn by presenting the official invitation greeting directly in chat, asking the user what RF circuit they would like to design today and providing concrete example prompts:
 
-2. **If Initialization / Setup Was Completed Without an Upfront Circuit Design** (e.g. fresh repository onboarding, *"Initialize the repo"*, *"Verify setup"*, *"Hello"*, or general harness bootstrap):
-   - The agent MUST present a welcoming completion message and final invitation greeting asking the user what RF circuit they would like to design today.
-   - The greeting MUST provide concrete, inspiring example prompts that showcase the agent's core RF synthesis capabilities:
+   > ### 🚀 RF Agent Initialized & Ready
+   >
+   > All containerized RF EDA tools and physics solvers are verified and operational:
+   > - **KiCad 10.0.4** (`pcbnew`, `kicad-cli`, 3D Raytracer)
+   > - **FreeCAD 1.0.0** (Microwave Workbench, 3D STEP Exporter)
+   > - **openEMS v0.37.0-rc2** (3D FDTD Full-Wave EM Solver)
+   > - **Qucsator-RF 1.0.3 / Qucs-S 24.4.1** & **ngspice 44.2** (Linear S-Parameter & Non-Linear SPICE)
+   > - **RF Scientific Stack** (`scikit-rf`, `numpy`, `scipy`, `matplotlib`, `cairosvg`)
+   >
+   > ---
+   >
+   > #### **What RF circuit would you like to design today?**
+   >
+   > Here are a few example prompts to get started:
+   > - **Bandpass Filter**: *"Bandpass filter for 98mhz FM Radio band using parallel LC tank"*
+   > - **Low Noise Amplifier**: *"Low Noise amplifier for 137MHz satellite band"*
+   > - **Attenuator**: *"10dB symmetric Pi-attenuator for 2.4GHz Wi-Fi band with 50Ω CPWG lines"*
+   > - **Calibration Standard**: *"50 ohm Load circuit for SOLT calibration"*
+   > - **Low-Pass Filter**: *"Butterworth 3-pole low-pass filter with 1GHz cutoff frequency"*
+   > - **Bias Tee**: *"Wideband RF Bias Tee for 500MHz to 3GHz with 50Ω CPWG lines"*
+   >
+   > Simply reply with your circuit idea or detailed specifications, and I will autonomously synthesize the schematic, route the controlled-impedance PCB, execute full-wave 3D EM simulation, and package fabrication-ready Gerbers!
 
-     > ### 🚀 RF Agent Initialized & Ready
-     >
-     > All containerized RF EDA tools and physics solvers are verified and operational:
-     > - **KiCad 10.0.4** (`pcbnew`, `kicad-cli`, 3D Raytracer)
-     > - **FreeCAD 1.0.0** (Microwave Workbench, 3D STEP Exporter)
-     > - **openEMS v0.37.0-rc2** (3D FDTD Full-Wave EM Solver)
-     > - **Qucsator-RF 1.0.3 / Qucs-S 24.4.1** & **ngspice 44.2** (Linear S-Parameter & Non-Linear SPICE)
-     > - **RF Scientific Stack** (`scikit-rf`, `numpy`, `scipy`, `matplotlib`, `cairosvg`)
-     >
-     > ---
-     >
-     > #### **What RF circuit would you like to design today?**
-     >
-     > Here are a few example prompts to get started:
-     > - **Bandpass Filter**: *"Bandpass filter for 98mhz FM Radio band using parallel LC tank"*
-     > - **Low Noise Amplifier**: *"Low Noise amplifier for 137MHz satellite band"*
-     > - **Attenuator**: *"10dB symmetric Pi-attenuator for 2.4GHz Wi-Fi band with 50Ω CPWG lines"*
-     > - **Calibration Standard**: *"50 ohm Load circuit for SOLT calibration"*
-     > - **Low-Pass Filter**: *"Butterworth 3-pole low-pass filter with 1GHz cutoff frequency"*
-     > - **Bias Tee**: *"Wideband RF Bias Tee for 500MHz to 3GHz with 50Ω CPWG lines"*
-     >
-     > Simply reply with your circuit idea or detailed specifications, and I will autonomously synthesize the schematic, route the controlled-impedance PCB, execute full-wave 3D EM simulation, and package fabrication-ready Gerbers!
+2. **If an RF Circuit Design Description Was Already Provided in the Initial Prompt**:
+   The agent presents the greeting confirming environment readiness and immediately kicks off **Task 1 (Schematic Synthesis)** without interruption per §1.3.
 
 ---
 

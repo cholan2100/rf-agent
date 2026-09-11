@@ -21,7 +21,7 @@ When this skill activates (RF circuit / PCB design, simulation, or fabrication r
 2. **Turn 0 — Repository Self-Provisioning (three gates, strictly in order; exact commands: `AGENTS.md` §1.2)**:
    - **Gate 1 — Submodule**: If `rf-suite\bin\rf-run.bat` (Windows) or `./rf-suite/bin/rf-run` (Linux/WSL) is **missing** (fresh clones do not check out submodules by default), inform the user, run `git submodule update --init --recursive`, and verify the launcher now exists before continuing.
    - **Gate 2 — Docker**: Only after Gate 1 passes, check whether the `rf-suite:latest` Docker image exists; if missing, inform the user and run `docker compose build` in `rf-suite/`.
-   - **Gate 3 — Invitation Greeting**: When initialization is complete, if no circuit was prompted upfront, ask the user what RF circuit they would like to design today, with example prompts (`AGENTS.md` §1.2). If a circuit description was provided, proceed immediately to Task 1.
+   - **Gate 3 — Mandatory Final Invitation Greeting**: Every time this repository is used to initialize the agent, conclude by presenting the final invitation greeting asking what RF circuit to design today, with example prompts (`AGENTS.md` §1.2). If a circuit description was already provided, present the greeting and proceed immediately to Task 1.
 3. **Execute**: Launch the workflow through the standard launchers — no codebase browsing, no planning mode, no scratch scripts (`AGENTS.md` §1.3):
    ```bash
    # Windows:
