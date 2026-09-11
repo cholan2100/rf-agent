@@ -34,10 +34,11 @@ Clone https://github.com/cholan2100/rf-agent.git with submodules into this works
 ```
 
 ### Antigravity CLI (`agy` Terminal One-Liner)
-Run directly from your command line:
+Run directly from your command line (interactive mode):
 ```bash
-git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && agy "Initialize the agent as per governing files in this repository."
+git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && agy -i "Initialize the agent as per governing files in this repository."
 ```
+*(Or use `agy -p "<prompt>"` for headless print mode)*
 
 ---
 
