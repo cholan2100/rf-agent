@@ -444,27 +444,21 @@ To maintain total transparency, stability, and engineering rigor, the agent foll
 
 ### Mandatory Rules: Interactive Modal Popups with Native Image Display
 > [!IMPORTANT]
-> **MANDATORY POPUP CONFIRMATION VIA `ask_question`**:
-> User review confirmations between stages MUST be triggered as **interactive popup modals** using `ask_question`.
-> To guarantee that visual renders (`schematic_zoomed.png`, `iso_render.png`, `top_render.png`, `sparam_plot.png`, etc.) are always 100% visible in the chat alongside the popup dialog, you MUST follow this exact 2-Turn sequence:
-> 
-> **TURN 1: Copy Image to Artifacts Directory**
-> You MUST first use the `run_command` tool to copy the generated `.png` asset from the project directory to your conversation artifacts directory. The chat UI strictly restricts image rendering to the artifacts folder.
-> *Example*: `Copy-Item "projects\<name>\renders\schematic_zoomed.png" -Destination "<appDataDir>\brain\<conversation-id>\"`
-> *(Wait for the command to succeed before proceeding to Turn 2).*
+> **MANDATORY POPUP CONFIRMATION VIA `ask_question` (ALL STAGES, NO EXCEPTIONS)**:
+> User review confirmations between stages MUST ALWAYS be triggered as **interactive popup modals** using `ask_question`. Never output plain-text options asking the user to type numbers or commands in chat.
 >
-> **TURN 2: Display Image & Call `ask_question`**
-> In the very next turn, you MUST do BOTH of the following simultaneously:
-> 1. **Emit Visible Markdown Text (OUTSIDE the tool call)**: Write out the full visible chat message containing the deliverables table, 0 DRC violations check, and the embedded image using standard Markdown syntax. **You MUST output this as standard conversational text to the user, NOT inside your internal thoughts or tool arguments.**
->    ```markdown
->    Here is the completed schematic:
->    ![Schematic](file:///<appDataDir>/brain/<conversation-id>/schematic_zoomed.png)
->    ```
->    *(CRITICAL: Ensure Windows backslashes are converted to forward slashes in the `file:///` URI, and never put the markdown image inside the `ask_question` JSON arguments!)*
-> 2. **Invoke `ask_question` Tool**: In the exact same turn as your visible text, call the `ask_question` tool with the 3 selectable options:
+> 1. **Stages with Visual Renders (Tasks 1, 2, 3, 7)**:
+>    - **Turn 1**: Copy `.png` asset to `<appDataDir>\brain\<conversation-id>\` using `run_command`.
+>    - **Turn 2**: Emit visible markdown text with embedded image (`![caption](file:///<appDataDir>/...)`) AND invoke `ask_question` in the exact same turn.
+>
+> 2. **Stages Without New Image Renders (Tasks 4 CAD, 5 EM, 6 Qucs, 8 Gerbers, 9 Report)**:
+>    - **Single Turn**: Emit visible markdown status/metrics table AND invoke `ask_question` directly in that same turn. Do NOT fall back to conversational text questions.
+>
+> 3. **Modal Options (3 Canonical Options)**:
 >    - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.`
 >    - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.`
 >    - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
+
 
 ### Stage-by-Stage Review & Context-Aware Prompt Mapping
 
