@@ -2,7 +2,7 @@
 
 > [!IMPORTANT]
 > **Thin catalog — AGENTS.md is the canonical source.**
-> This file is a **high-level index** of the agent's skills. The **complete, authoritative operating protocol** (Turn 0 Repository Self-Provisioning (submodule + Docker), Immediate Execution Policy, Default Hardware Baseline, Interactive Review Protocol, and full CLI reference) lives in **[AGENTS.md](AGENTS.md)** and is **not duplicated here**. Read and follow `AGENTS.md` first; use this catalog only for orientation.
+> This file is a **high-level index** of the agent's skills. The **complete, authoritative operating protocol** (Turn 0 Repository Self-Provisioning (submodule + Docker + greeting), Immediate Execution Policy, Default Hardware Baseline, Interactive Review Protocol, and full CLI reference) lives in **[AGENTS.md](AGENTS.md)** and is **not duplicated here**. Read and follow `AGENTS.md` first; use this catalog only for orientation.
 >
 > **Editing rule**: Never edit protocol or baseline rules here. Update [AGENTS.md](AGENTS.md) — this catalog inherits changes automatically.
 

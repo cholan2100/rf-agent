@@ -33,11 +33,11 @@ All tools inside the container are executed from the repository root via the cro
 
 ---
 
-## 1.2 Mandatory Turn 0: Repository Self-Provisioning Protocol (Submodule + Docker)
+## 1.2 Mandatory Turn 0: Repository Self-Provisioning Protocol (Submodule + Docker + Greeting)
 
 > [!CRITICAL]
 > **BEFORE LAUNCHING ANY DESIGN WORKFLOW OR STAGE:**
-> The AI Agent MUST verify the repository is fully provisioned. Provisioning is a strict sequence of two gates: **(Gate 1)** the `rf-suite` submodule is checked out, then **(Gate 2)** the `rf-suite` Docker image is built. Never attempt Gate 2 before Gate 1 — every build command targets `rf-suite/`, which is empty in a fresh clone. Keep the user informed at every step.
+> The AI Agent MUST verify the repository is fully provisioned. Provisioning is a strict sequence of gates: **(Gate 1)** the `rf-suite` submodule is checked out, **(Gate 2)** the `rf-suite` Docker image is built, and **(Gate 3)** post-initialization readiness and user invitation greeting. Never attempt Gate 2 before Gate 1 — every build command targets `rf-suite/`, which is empty in a fresh clone. Keep the user informed at every step.
 
 ### Gate 1 (Step 0.1): Submodule Initialization & Verification
 > [!IMPORTANT]
@@ -102,10 +102,44 @@ If the image ID is empty or the command fails:
    ```
 3. **NOTIFY USER ON COMPLETION**:
    Once the build completes successfully, update the user:
-   > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding immediately to Task 1 (Schematic Synthesis)..."*
+   > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
 
 #### If Image is Ready
-Proceed directly to Task 1 without delay.
+Gate 2 passes — proceed directly to Gate 3.
+
+### Gate 3 (Step 0.3): Initialization Completion & User Invitation Greeting Protocol
+Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2 Docker environment are verified and ready):
+
+1. **If an RF Circuit Design Was Already Prompted Upfront** (e.g. *"Design a 10dB attenuator for 2.4GHz"*):
+   - Notify the user that the environment is ready and immediately proceed to **Task 1 (Schematic Synthesis)** without delay per §1.3:
+     > *"The `rf-suite` toolchain environment is fully verified and ready! Proceeding immediately to Task 1 (Schematic Synthesis)..."*
+
+2. **If Initialization / Setup Was Completed Without an Upfront Circuit Design** (e.g. fresh repository onboarding, *"Initialize the repo"*, *"Verify setup"*, *"Hello"*, or general harness bootstrap):
+   - The agent MUST present a welcoming completion message and final invitation greeting asking the user what RF circuit they would like to design today.
+   - The greeting MUST provide concrete, inspiring example prompts that showcase the agent's core RF synthesis capabilities:
+
+     > ### 🚀 RF Agent Initialized & Ready
+     >
+     > All containerized RF EDA tools and physics solvers are verified and operational:
+     > - **KiCad 10.0.4** (`pcbnew`, `kicad-cli`, 3D Raytracer)
+     > - **FreeCAD 1.0.0** (Microwave Workbench, 3D STEP Exporter)
+     > - **openEMS v0.37.0-rc2** (3D FDTD Full-Wave EM Solver)
+     > - **Qucsator-RF 1.0.3 / Qucs-S 24.4.1** & **ngspice 44.2** (Linear S-Parameter & Non-Linear SPICE)
+     > - **RF Scientific Stack** (`scikit-rf`, `numpy`, `scipy`, `matplotlib`, `cairosvg`)
+     >
+     > ---
+     >
+     > #### **What RF circuit would you like to design today?**
+     >
+     > Here are a few example prompts to get started:
+     > - **Bandpass Filter**: *"Bandpass filter for 98mhz FM Radio band using parallel LC tank"*
+     > - **Low Noise Amplifier**: *"Low Noise amplifier for 137MHz satellite band"*
+     > - **Attenuator**: *"10dB symmetric Pi-attenuator for 2.4GHz Wi-Fi band with 50Ω CPWG lines"*
+     > - **Calibration Standard**: *"50 ohm Load circuit for SOLT calibration"*
+     > - **Low-Pass Filter**: *"Butterworth 3-pole low-pass filter with 1GHz cutoff frequency"*
+     > - **Bias Tee**: *"Wideband RF Bias Tee for 500MHz to 3GHz with 50Ω CPWG lines"*
+     >
+     > Simply reply with your circuit idea or detailed specifications, and I will autonomously synthesize the schematic, route the controlled-impedance PCB, execute full-wave 3D EM simulation, and package fabrication-ready Gerbers!
 
 ---
 
@@ -116,7 +150,7 @@ Proceed directly to Task 1 without delay.
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Docker), immediately launch **Task 1 (Schematic)** using the standard launcher:
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Docker), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the standard launcher:
 >    ```bash
 >    # Windows:
 >    rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
@@ -125,6 +159,7 @@ Proceed directly to Task 1 without delay.
 >    ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
 >    ```
 >    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
+>    If no circuit description was given yet (e.g., initial repository checkout or environment setup), deliver the Invitation Greeting (§1.2 Gate 3) and await the user's circuit prompt.
 
 ---
 
