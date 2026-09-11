@@ -20,7 +20,10 @@ When this skill activates (RF circuit / PCB design, simulation, or fabrication r
 1. **Read `AGENTS.md` first** — it defines the complete 9-stage workflow and all engineering rules.
 2. **Turn 0 — Repository Self-Provisioning (three gates, strictly in order; exact commands: `AGENTS.md` §1.2)**:
    - **Gate 1 — Submodule**: If `rf-suite\bin\rf-run.bat` (Windows) or `./rf-suite/bin/rf-run` (Linux/WSL) is **missing** (fresh clones do not check out submodules by default), inform the user, run `git submodule update --init --recursive`, and verify the launcher now exists before continuing.
-   - **Gate 2 — Backend Selection & Verification**: Default to `RF_BACKEND=local`. Unless explicitly specified in the user prompt, check with the user via `ask_question` whether to run locally or on AWS (`(Recommended) Local rf-suite...`). For Local mode, check whether `rf-suite:latest` Docker image exists (build via `docker compose build` in `rf-suite/` if missing). For AWS mode, verify EC2 host status via `rf-aws status`.
+   - **Gate 2 — Backend Selection & Verification**: Default to `RF_BACKEND=local`. Unless explicitly specified in the user prompt, check with the user via `ask_question` to select between:
+     1. `(Recommended) Direct Local Commands execution (fastest, WSL installation required)`: verify `rf-suite:latest` Docker image exists (build via `docker compose build` in `rf-suite/` if missing).
+     2. `SaaS on AWS (easy, no setup)`: offloads compute to AWS microservice via REST/FastMCP (`RF_BACKEND=saas`, `RF_SAAS_URL=<aws-url>`); probe `/health`.
+     3. `SaaS on Local WSL (deployment testing)`: tests REST/FastMCP pipeline locally (`RF_BACKEND=saas`, `RF_SAAS_URL=http://127.0.0.1:8000`); probe `http://127.0.0.1:8000/health` (launch via `rf-suite\bin\rf-saas-server.bat` if needed).
    - **Gate 3 — Mandatory Final Invitation Greeting**: Every time this repository is used to initialize the agent, conclude by presenting the final invitation greeting asking what RF circuit to design today, with example prompts (`AGENTS.md` §1.2). If a circuit description was already provided, present the greeting and proceed immediately to Task 1.
 3. **Execute**: Launch the workflow through the standard launchers — no codebase browsing, no planning mode, no scratch scripts (`AGENTS.md` §1.3):
    ```bash

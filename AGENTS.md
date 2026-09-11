@@ -70,67 +70,83 @@ All tools inside the container are executed from the repository root via the cro
 
 > [!IMPORTANT]
 > **Default Execution Backend**: `RF_BACKEND=local` is the **canonical default**.
-> During repository bootstrapping / initialization (Turn 0), the AI Agent MUST check with the user via `ask_question` to confirm whether to use Local or AWS `rf-suite`. **Local execution is always recommended** for rapid iteration, zero cloud fees, and direct hardware access.
+> During repository bootstrapping / initialization (Turn 0), the AI Agent MUST check with the user via `ask_question` to confirm which backend to configure:
+> 1. **Direct Local Commands execution** (fastest, WSL installation required) — Recommended
+> 2. **SaaS on AWS** (easy, no setup)
+> 3. **SaaS on Local WSL** (deployment testing)
 
 #### Step 2a: Mandatory User Backend Confirmation via `ask_question`
-Unless the user's initial prompt explicitly declared which backend to run on (e.g. "run using AWS" or "run locally"), the AI Agent MUST invoke the interactive modal `ask_question` during Turn 0 bootstrap before verifying or launching any solvers:
+Unless the user's initial prompt explicitly declared which backend to run on (e.g. "run using AWS SaaS", "run using local SaaS", or "run direct local"), the AI Agent MUST invoke the interactive modal `ask_question` during Turn 0 bootstrap before verifying or launching any solvers:
 
 - **Question**: `"Which RF toolchain execution backend would you like to use for simulations and PCB design?"`
 - **Options**:
-  - `(Recommended) Local rf-suite (Docker on workstation — faster for single runs, zero cloud costs)`
-  - `AWS rf-suite (EC2 remote container — offloads heavy compute to cloud instance)`
+  - `(Recommended) Direct Local Commands execution (fastest, WSL installation required)`
+  - `SaaS on AWS (easy, no setup)`
+  - `SaaS on Local WSL (deployment testing)`
 
-#### Step 2b: Execution Backend Verification Based on User Selection
+#### Step 2b: Execution Backend Setup & Verification Based on User Selection
 
-* **If User Selects Local (`RF_BACKEND=local` - Recommended)**:
-  Ensure `RF_BACKEND=local` is active in `.env`. The EDA and simulation suite will execute locally inside the developer workstation's Docker container. Follow the local Docker verification protocol below.
+* **Option 1: If User Selects Direct Local Commands (`RF_BACKEND=local` - Recommended)**:
+  - **Environment Configuration**: Ensure `RF_BACKEND=local` is active in `.env`.
+  - **Operating Mechanism**: The agent executes EDA/simulation solvers headlessly inside the local Docker container via the standard launchers (`rf-suite\bin\rf-run.bat` on Windows or `./rf-suite/bin/rf-run` on Linux/WSL).
+  - **Docker Host Architecture**:
+    - **On Windows**: Docker is by default managed inside the **WSL Debian** environment (`wsl -d Debian`). When running Docker commands directly on Windows, execute them via WSL: `wsl -d Debian bash -c "docker ..."`. The Windows batch scripts (`rf-run.bat`, `rf-bash.bat`, `rf-gui.bat`) automatically detect this.
+    - **On Linux**: Docker is typically native in standard system PATH (`docker ...`).
+  - **Verification**:
+    ```bash
+    # On Windows (Docker is in WSL Debian by default):
+    wsl -d Debian bash -c "docker images -q rf-suite:latest"
+    # Or test via the batch launcher: rf-suite\bin\rf-run.bat python --version
 
-  ##### Docker Host Architecture Rule (Windows vs Linux - Local Mode)
-  > [!IMPORTANT]
-  > **Docker Daemon Environment**:
-  > * **On Windows**: Docker is by default located and managed inside the **WSL Debian** environment (`wsl -d Debian`). When running Docker commands directly on Windows, execute them via WSL: `wsl -d Debian bash -c "docker ..."`. The Windows batch scripts in `rf-suite\bin\` (`rf-run.bat`, `rf-bash.bat`, `rf-gui.bat`) automatically detect this and target the WSL Debian container environment.
-  > * **On Linux**: Docker is typically native and accessible directly in the standard system PATH (`docker ...`).
+    # On Linux (Native Docker):
+    docker images -q rf-suite:latest
+    ```
+  - **If Image is Missing (Not Ready) -> Auto-Build Protocol**:
+    1. **INFORM THE USER IMMEDIATELY IN CHAT**:
+       > *"The `rf-suite` Docker toolchain environment is not built yet. Building the Docker image now via `docker compose build` in `rf-suite/`... This will compile and configure KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python dependencies. I will keep you updated as the build progresses."*
+    2. **TRIGGER DOCKER COMPOSE BUILD**:
+       ```bash
+       # On Windows (Docker in WSL Debian):
+       wsl -d Debian bash -c "cd <wsl-path-of-repo-root>/rf-suite && docker compose build"
+       # On Linux:
+       cd rf-suite && docker compose build
+       ```
+    3. **NOTIFY USER ON COMPLETION**:
+       > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
 
-  Check if the `rf-suite:latest` Docker image is present:
-  ```bash
-  # On Windows (Docker is in WSL Debian by default):
-  wsl -d Debian bash -c "docker images -q rf-suite:latest"
-  # Or test via the batch launcher: rf-suite\bin\rf-run.bat python --version
+* **Option 2: If User Selects SaaS on AWS (`RF_BACKEND=saas` - AWS Hosted)**:
+  - **Environment Configuration**: Ensure `RF_BACKEND=saas` is active in `.env`.
+  - **Operating Mechanism**: Zero workstation dependencies. The developer machine does NOT require KiCad, FreeCAD, openEMS, Docker, or WSL installed. The agent client (`agent.workflow --backend saas` or `RFSaasClient`) communicates with the hosted AWS microservice via REST endpoints on HTTPS or Model Context Protocol (FastMCP).
+  - **Endpoint Setup**: Set `RF_SAAS_URL=<aws-saas-url>` (e.g. AWS App Runner service URL or hosted EC2 endpoint) and optional `RF_SAAS_API_KEY` in `.env`.
+  - **Verification**:
+    ```bash
+    curl -s <RF_SAAS_URL>/health
+    ```
+    - Expected response: `{"status":"healthy","service":"rf-suite-saas", ...}`.
+    - If `RF_SAAS_URL` is empty or not yet deployed: Guide the user to configure the endpoint, or offer automated cloud deployment via `python aws/deploy_saas.py` or CloudFormation.
 
-  # On Linux (Native Docker):
-  docker images -q rf-suite:latest
-  ```
-
-  ##### If Image is Missing (Not Ready - Local Mode) -> Auto-Build Protocol
-  If the image ID is empty or the command fails:
-  1. **INFORM THE USER IMMEDIATELY IN CHAT**:
-     Post a clear, reassuring status message before starting the build:
-     > *"The `rf-suite` Docker toolchain environment is not built yet. Building the Docker image now via `docker compose build` in `rf-suite/`... This will compile and configure KiCad 10, FreeCAD 1.0, openEMS, Qucsator-RF, and the RF Python dependencies. I will keep you updated as the build progresses."*
-  2. **TRIGGER DOCKER COMPOSE BUILD**:
-     ```bash
-     # On Windows (Docker in WSL Debian): compute the WSL path of <repo-root> first
-     # (e.g. D:\Workspace\rf\rf-agent -> /mnt/d/Workspace/rf/rf-agent), then:
-     wsl -d Debian bash -c "cd <wsl-path-of-repo-root>/rf-suite && docker compose build"
-     # Or if native Docker CLI is in Windows PATH:
-     cd rf-suite && docker compose build
-
-     # On Linux (Native Docker):
-     cd rf-suite && docker compose build
-     ```
-  3. **NOTIFY USER ON COMPLETION**:
-     Once the build completes successfully, update the user:
-     > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
-
-* **If User Selects AWS (`RF_BACKEND=aws`)**:
-  Ensure `RF_BACKEND=aws` is active in `.env`. Compute is offloaded to the AWS EC2 instance. Verify AWS connectivity and host status:
-  ```bash
-  # Windows:
-  rf-suite\bin\rf-aws.bat status
-  # Linux / WSL:
-  ./rf-suite/bin/rf-aws status
-  ```
-  - If the AWS instance is `stopped`, it will automatically start upon the first command execution (or run `rf-aws start`).
-  - If AWS credentials or instance ID are not yet configured in `.env`, guide the user to provide them or offer automated deployment (`deploy_stack.py` or CloudFormation).
+* **Option 3: If User Selects SaaS on Local WSL (`RF_BACKEND=saas` - Local Deployment Testing)**:
+  - **Environment Configuration**: Ensure `RF_BACKEND=saas` and `RF_SAAS_URL=http://127.0.0.1:8000` are active in `.env`.
+  - **Operating Mechanism**: Used for local microservice deployment testing and validating REST API sync and FastMCP tools without cloud fees. The client sends HTTP requests to `http://127.0.0.1:8000`, which the local `rf-suite-env` container processes.
+  - **Verification**:
+    1. Check if the local container `rf-suite-env` is running:
+       ```bash
+       # Windows:
+       wsl -d Debian bash -c "docker ps | grep rf-suite-env"
+       # Linux:
+       docker ps | grep rf-suite-env
+       ```
+    2. Probe `/health` endpoint:
+       ```bash
+       curl -s http://127.0.0.1:8000/health
+       ```
+    3. If container or SaaS server is not running, start the server:
+       ```bash
+       # Windows:
+       rf-suite\bin\rf-saas-server.bat
+       # Or launch in background inside WSL Debian:
+       wsl -d Debian bash -c "docker exec -d rf-suite-env bash -c 'export DISPLAY=:99 && uvicorn agent.saas.app:app --host 0.0.0.0 --port 8000 --reload'"
+       ```
 
 #### If Selected Backend is Ready
 Gate 2 passes — proceed directly to Gate 3.
@@ -181,14 +197,25 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Docker), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the standard launcher:
->    ```bash
->    # Windows:
->    rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Backend), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
+>    - **For Direct Local Commands (`RF_BACKEND=local`)**:
+>      ```bash
+>      # Windows:
+>      rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
 >
->    # Linux / WSL:
->    ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
->    ```
+>      # Linux / WSL:
+>      ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
+>      ```
+>    - **For SaaS Backend (AWS or Local WSL - `RF_BACKEND=saas`)**:
+>      ```bash
+>      # Windows (native Python if available, or via WSL Debian):
+>      python -m agent.workflow --desc "<circuit description>" --backend saas --stages schematic
+>      # If native Windows Python is not installed:
+>      wsl -d Debian bash -c "cd <wsl-path-of-repo-root> && python3 -m agent.workflow --desc '<circuit description>' --backend saas --stages schematic"
+>
+>      # Linux / WSL:
+>      python3 -m agent.workflow --desc "<circuit description>" --backend saas --stages schematic
+>      ```
 >    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
 >    If no circuit description was given yet (e.g., initial repository checkout or environment setup), deliver the Invitation Greeting (§1.2 Gate 3) and await the user's circuit prompt.
 
@@ -361,6 +388,42 @@ rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spe
 # Task 9: Performance Documentation & BOM
 ./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages report
 ```
+
+#### SaaS Microservice Execution (AWS or Local WSL)
+When `RF_BACKEND=saas` is active, commands communicate over HTTP REST with the hosted SaaS engine (`RF_SAAS_URL`) and automatically synchronize all deliverables locally to `projects/<name>/`:
+
+```bash
+# Task 1: Schematic Synthesis & Zoomed Crop via SaaS
+python -m agent.workflow --desc "<circuit description>" --backend saas --stages schematic
+
+# Task 2: Controlled Impedance PCB Layout & DRC via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages pcb
+
+# Task 3: 3D Raytracing (Iso, Top, Bottom) via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages render
+
+# Task 4: Mechanical CAD & 3D STEP Assembly via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages cad
+
+# Task 5: openEMS EM Simulation -> Touchstone .s1p / .s2p via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages em
+
+# Task 6: Qucsator Linear Co-Simulation via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages qucs
+
+# Task 7: RF Performance Charts via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages charts
+
+# Task 8: Production Gerber & Drill ZIP Packaging via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages gerbers
+
+# Task 9: Performance Documentation & BOM via SaaS
+python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages report
+
+# Execute All 9 Stages End-to-End via SaaS:
+python -m agent.workflow --desc "<circuit description>" --backend saas
+```
+*(Note: If executing on Windows where Python is inside WSL Debian, prefix with `wsl -d Debian bash -c "cd <wsl-path-to-repo> && python3 -m agent.workflow ..."`)*
 
 ---
 
