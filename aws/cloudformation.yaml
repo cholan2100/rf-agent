@@ -1,0 +1,333 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RF Suite Cloud Infrastructure - Headless RF EDA & Simulation Container on AWS EC2'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: c6i.2xlarge
+    AllowedValues:
+      - t3.xlarge
+      - t3.2xlarge
+      - c5.xlarge
+      - c5.2xlarge
+      - c6i.xlarge
+      - c6i.2xlarge
+      - c6i.4xlarge
+    Description: 'EC2 instance type for running RF Suite simulations (openEMS FDTD, FreeCAD, KiCad raytracer)'
+
+  VolumeSizeGB:
+    Type: Number
+    Default: 60
+    MinValue: 40
+    MaxValue: 500
+    Description: 'EBS GP3 Root volume size in GB for Docker images and simulation workspace'
+
+  AutoStopIdleMinutes:
+    Type: Number
+    Default: 30
+    Description: 'Minutes of idle CPU (< 3% utilization) before the instance automatically stops to prevent unwanted costs'
+
+  AmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp3/ami-id'
+    Description: 'SSM parameter pointing to the latest official Ubuntu 22.04 LTS AMI'
+
+Resources:
+  # ----------------------------------------------------------------------------
+  # Networking
+  # ----------------------------------------------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: rf-suite-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: rf-suite-igw
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: rf-suite-subnet
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: rf-suite-public-rt
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  # ----------------------------------------------------------------------------
+  # Security Group (No public ingress needed! AWS SSM manages secure sessions)
+  # ----------------------------------------------------------------------------
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'RF Suite Instance SG - Outbound internet for package downloads and SSM'
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'Allow all outbound traffic for package updates, Docker image pulls, and SSM'
+      Tags:
+        - Key: Name
+          Value: rf-suite-sg
+
+  # ----------------------------------------------------------------------------
+  # S3 Workspace & Artifact Bucket
+  # ----------------------------------------------------------------------------
+  WorkspaceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupOldSimulations
+            Status: Enabled
+            ExpirationInDays: 90
+      Tags:
+        - Key: Name
+          Value: rf-suite-workspace-bucket
+
+  # ----------------------------------------------------------------------------
+  # IAM Role & Instance Profile for Systems Manager (SSM) and S3 Access
+  # ----------------------------------------------------------------------------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: RFSuiteS3WorkspacePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:aws:s3:::${WorkspaceBucket}'
+                  - !Sub 'arn:aws:s3:::${WorkspaceBucket}/*'
+              - Effect: Allow
+                Action:
+                  - ec2:StopInstances
+                Resource: '*'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  # ----------------------------------------------------------------------------
+  # EC2 Compute Instance
+  # ----------------------------------------------------------------------------
+  RFSuiteInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AmiId
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref VolumeSizeGB
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: rf-suite-host
+        - Key: Application
+          Value: rf-agent
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -ex
+
+          # 1. Update and install base prerequisites
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y ca-certificates curl gnupg lsb-release git unzip jq bc
+
+          # 2. Install Docker CE & Docker Compose Plugin
+          mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+          apt-get update
+          apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+          # 3. Install AWS CLI v2
+          curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          ./aws/install
+          rm -rf aws awscliv2.zip
+
+          # 4. Create Workspace directory and clone rf-suite
+          mkdir -p /opt/rf-agent-host
+          cd /opt/rf-agent-host
+          git clone --recursive https://github.com/cholan2100/rf-suite.git rf-suite || true
+
+          # Create persistent workspace folder
+          mkdir -p /opt/rf-agent-host/workspace/projects
+
+          # Set up environment file
+          cat << 'EOF' > /opt/rf-agent-host/rf-suite/.env
+          PROJECT_PATH=/opt/rf-agent-host/workspace
+          RESOLUTION=1920x1080
+          VNC_PASSWORD=rfworkbench
+          EOF
+
+          # Configure auto-start systemd service for rf-suite container
+          cat << 'EOF' > /etc/systemd/system/rf-suite.service
+          [Unit]
+          Description=RF Suite Docker Container Service
+          Requires=docker.service
+          After=docker.service network-online.target
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          WorkingDirectory=/opt/rf-agent-host/rf-suite
+          ExecStart=/usr/bin/docker compose up -d
+          ExecStop=/usr/bin/docker compose down
+          TimeoutStartSec=0
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          systemctl daemon-reload
+          systemctl enable rf-suite.service
+
+          # Build and start container in background
+          cd /opt/rf-agent-host/rf-suite
+          docker compose build || true
+          docker compose up -d
+
+          # 5. Set up Idle Auto-Shutdown Monitor
+          cat << 'EOF' > /usr/local/bin/rf-idle-monitor.sh
+          #!/bin/bash
+          # Checks CPU utilization and stops the instance if idle for specified duration
+          THRESHOLD=3.0
+          MAX_IDLE_MINS=${AutoStopIdleMinutes}
+          IDLE_COUNT_FILE="/tmp/rf_idle_counter"
+
+          if [ ! -f "$IDLE_COUNT_FILE" ]; then
+              echo "0" > "$IDLE_COUNT_FILE"
+          fi
+
+          # Get 5-min CPU usage
+          CPU_IDLE=$(top -bn2 -d 1 | grep "Cpu(s)" | tail -n 1 | awk '{print $8}')
+          CPU_USAGE=$(echo "100 - $CPU_IDLE" | bc 2>/dev/null || echo "100")
+
+          # Check if docker is executing a simulation or command
+          ACTIVE_CONTAINERS=$(docker ps -q)
+          CONTAINER_CPU=$(docker stats --no-stream --format "{{.CPUPerc}}" | sed 's/%//g' | awk '{s+=$1} END {print s+0}')
+
+          if (( $(echo "$CPU_USAGE < $THRESHOLD" | bc -l) )) && (( $(echo "$CONTAINER_CPU < $THRESHOLD" | bc -l) )); then
+              COUNT=$(cat "$IDLE_COUNT_FILE")
+              COUNT=$((COUNT + 5))
+              echo "$COUNT" > "$IDLE_COUNT_FILE"
+              echo "[$(date)] Idle detected. Counter: ${COUNT}/${MAX_IDLE_MINS} mins"
+              if [ "$COUNT" -ge "$MAX_IDLE_MINS" ]; then
+                  echo "[$(date)] Idle threshold reached. Stopping instance to prevent unwanted charges."
+                  INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+                  REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+                  aws ec2 stop-instances --instance-ids "$INSTANCE_ID" --region "$REGION"
+              fi
+          else
+              echo "0" > "$IDLE_COUNT_FILE"
+              echo "[$(date)] Active workload (CPU: ${CPU_USAGE}%, Container: ${CONTAINER_CPU}%). Counter reset."
+          fi
+          EOF
+
+          chmod +x /usr/local/bin/rf-idle-monitor.sh
+
+          # Install cron job to run idle monitor every 5 minutes
+          (crontab -l 2>/dev/null; echo "*/5 * * * * /usr/local/bin/rf-idle-monitor.sh >> /var/log/rf-idle-monitor.log 2>&1") | crontab -
+
+Outputs:
+  InstanceId:
+    Description: 'EC2 Instance ID for the RF Suite host'
+    Value: !Ref RFSuiteInstance
+
+  WorkspaceBucketName:
+    Description: 'S3 Bucket name for workspace sync'
+    Value: !Ref WorkspaceBucket
+
+  AwsRegion:
+    Description: 'AWS Region of deployment'
+    Value: !Ref 'AWS::Region'
+
+  SSMConnectCommand:
+    Description: 'Command to start an interactive shell on the RF Suite host'
+    Value: !Sub 'aws ssm start-session --target ${RFSuiteInstance} --region ${AWS::Region}'
+
+  SSMGuiTunnelCommand:
+    Description: 'Command to tunnel noVNC web desktop (port 6080) to your local browser'
+    Value: !Sub 'aws ssm start-session --target ${RFSuiteInstance} --region ${AWS::Region} --document-name AWS-StartPortForwardingSession --parameters "{\"portNumber\":[\"6080\"],\"localPortNumber\":[\"6080\"]}"'
+
+  EnvironmentConfig:
+    Description: 'Add these environment variables to your .env file'
+    Value: !Sub |
+      RF_BACKEND=aws
+      AWS_REGION=${AWS::Region}
+      AWS_INSTANCE_ID=${RFSuiteInstance}
+      AWS_S3_BUCKET=${WorkspaceBucket}
+      RF_REMOTE_METHOD=ssm

@@ -66,9 +66,24 @@ All tools inside the container are executed from the repository root via the cro
 >
 > 3. **IF THE LAUNCHER FILE EXISTS**: Gate 1 passes — proceed directly to Gate 2 (Step 0.2).
 
-### Gate 2 (Step 0.2): Docker Readiness & Auto-Build
+### Gate 2 (Step 0.2): Execution Backend Readiness (Local Docker vs AWS EC2)
 
-#### Docker Host Architecture Rule (Windows vs Linux)
+#### Backend Selection: Local Docker vs AWS Cloud
+Check whether `RF_BACKEND=aws` is configured in `.env` (or environment):
+* **If `RF_BACKEND=aws` (or `AWS_INSTANCE_ID` is set)**:
+  Compute is offloaded to the AWS EC2 instance. Verify AWS connectivity and host status:
+  ```bash
+  # Windows:
+  rf-suite\bin\rf-aws.bat status
+  # Linux / WSL:
+  ./rf-suite/bin/rf-aws status
+  ```
+  If the AWS instance is `stopped`, it will automatically start upon the first command execution (or run `rf-aws start`). Proceed directly to Gate 3.
+
+* **If `RF_BACKEND=local` (Default)**:
+  Docker is hosted locally on the developer's workstation. Follow the local Docker verification protocol below.
+
+#### Docker Host Architecture Rule (Windows vs Linux - Local Mode)
 > [!IMPORTANT]
 > **Docker Daemon Environment**:
 > * **On Windows**: Docker is by default located and managed inside the **WSL Debian** environment (`wsl -d Debian`). When running Docker commands directly on Windows, execute them via WSL: `wsl -d Debian bash -c "docker ..."`. The Windows batch scripts in `rf-suite\bin\` (`rf-run.bat`, `rf-bash.bat`, `rf-gui.bat`) automatically detect this and target the WSL Debian container environment.
@@ -84,7 +99,7 @@ wsl -d Debian bash -c "docker images -q rf-suite:latest"
 docker images -q rf-suite:latest
 ```
 
-#### If Image is Missing (Not Ready) -> Auto-Build Protocol
+#### If Image is Missing (Not Ready - Local Mode) -> Auto-Build Protocol
 If the image ID is empty or the command fails:
 1. **INFORM THE USER IMMEDIATELY IN CHAT**:
    Post a clear, reassuring status message before starting the build:
@@ -104,7 +119,7 @@ If the image ID is empty or the command fails:
    Once the build completes successfully, update the user:
    > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
 
-#### If Image is Ready
+#### If Image or AWS Host is Ready
 Gate 2 passes — proceed directly to Gate 3.
 
 ### Gate 3 (Step 0.3): Mandatory Post-Initialization Invitation Greeting Protocol
