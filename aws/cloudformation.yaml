@@ -4,8 +4,11 @@ Description: 'RF Suite Cloud Infrastructure - Headless RF EDA & Simulation Conta
 Parameters:
   InstanceType:
     Type: String
-    Default: c6i.2xlarge
+    Default: m7i-flex.large
     AllowedValues:
+      - m7i-flex.large
+      - c7i-flex.large
+      - t3.large
       - t3.xlarge
       - t3.2xlarge
       - c5.xlarge
@@ -28,9 +31,8 @@ Parameters:
     Description: 'Minutes of idle CPU (< 3% utilization) before the instance automatically stops to prevent unwanted costs'
 
   AmiId:
-    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    Default: '/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp3/ami-id'
-    Description: 'SSM parameter pointing to the latest official Ubuntu 22.04 LTS AMI'
+    Type: String
+    Description: 'AMI ID for Ubuntu 22.04 LTS (e.g. ami-0dd3e09c2cc277cf9)'
 
 Resources:
   # ----------------------------------------------------------------------------
@@ -284,7 +286,7 @@ Resources:
               COUNT=$(cat "$IDLE_COUNT_FILE")
               COUNT=$((COUNT + 5))
               echo "$COUNT" > "$IDLE_COUNT_FILE"
-              echo "[$(date)] Idle detected. Counter: ${COUNT}/${MAX_IDLE_MINS} mins"
+              echo "[$(date)] Idle detected. Counter: $COUNT/$MAX_IDLE_MINS mins"
               if [ "$COUNT" -ge "$MAX_IDLE_MINS" ]; then
                   echo "[$(date)] Idle threshold reached. Stopping instance to prevent unwanted charges."
                   INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
@@ -293,7 +295,7 @@ Resources:
               fi
           else
               echo "0" > "$IDLE_COUNT_FILE"
-              echo "[$(date)] Active workload (CPU: ${CPU_USAGE}%, Container: ${CONTAINER_CPU}%). Counter reset."
+              echo "[$(date)] Active workload (CPU: $CPU_USAGE%, Container: $CONTAINER_CPU%). Counter reset."
           fi
           EOF
 

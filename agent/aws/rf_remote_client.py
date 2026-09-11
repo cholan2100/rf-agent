@@ -385,6 +385,10 @@ def main():
     # Action: sync-down
     subparsers.add_parser("sync-down", help="Sync remote projects directory from AWS to local")
 
+    # Action: host-logs
+    logs_parser = subparsers.add_parser("host-logs", help="View cloud-init and container startup logs on EC2")
+    logs_parser.add_argument("--lines", type=int, default=40, help="Number of log lines to show (default 40)")
+
     args = parser.parse_args()
 
     if not args.action:
@@ -413,6 +417,18 @@ def main():
     elif args.action == "sync-down":
         from .sync_manager import sync_workspace_from_aws
         sync_workspace_from_aws(verbose=True)
+
+    elif args.action == "host-logs":
+        code, out, err = execute_ssm_command(
+            cfg["instance_id"],
+            [f"tail -n {args.lines} /var/log/cloud-init-output.log"],
+            region=cfg["region"],
+            wait=True
+        )
+        if out:
+            print(out)
+        if err:
+            print(err, file=sys.stderr)
 
     elif args.action == "run":
         if not args.cmd:
