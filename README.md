@@ -24,32 +24,64 @@ An autonomous AI RF/Microwave hardware engineering engine and PCB design suite.
 
 ## Quickstart
 
-[![Antigravity](https://img.shields.io/badge/Antigravity-Agent%20Native-4285F4?logo=google&logoColor=white)](#1-antigravity-desktop-one-click-prompt)
-[![Git Clone](https://img.shields.io/badge/Git-Recurse%20Submodules-F05032?logo=git&logoColor=white)](#2-antigravity-cli-agy-terminal-one-liner)
+[![Claude](https://img.shields.io/badge/Claude-Code%20Ready-D97706?logo=anthropic&logoColor=white)](#1-claude-claude-code--desktop)
+[![Codex](https://img.shields.io/badge/OpenAI-Codex%20Ready-00A67E?logo=openai&logoColor=white)](#2-codex-openai-codex--chatgpt)
+[![OpenCode](https://img.shields.io/badge/OpenCode-Agent%20Ready-7C3AED?logo=github&logoColor=white)](#3-opencode)
+[![Antigravity](https://img.shields.io/badge/Antigravity-Agent%20Native-4285F4?logo=google&logoColor=white)](#4-antigravity-desktop--cli)
 
-### 1. Antigravity Desktop (One-Click Prompt)
-Open **Antigravity Desktop**, create a new chat in an empty workspace, and paste:
-```text
-Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
-```
-The agent will autonomously clone the repository, bootstrap the toolchain, and greet you with the available design options.
+Choose your preferred AI Agent Harness:
 
-### 2. Antigravity CLI (`agy` Terminal One-Liner)
-Run directly from your terminal to launch an interactive session:
-```bash
-git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && agy -i "Initialize the agent as per governing files in this repository."
-```
-*(Or use `agy -p "<prompt>"` for headless print mode)*
+### 1. Claude (Claude Code & Desktop)
+- **Chat / Desktop Prompt**:
+  ```text
+  Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
+  ```
+- **Claude Code CLI One-Liner**:
+  ```bash
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && claude "Initialize the agent as per governing files in this repository."
+  ```
 
-### 3. Antigravity IDE
-1. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>), select **Git: Clone**, and enter:
-   ```text
-   https://github.com/cholan2100/rf-agent.git
-   ```
-2. In the agent sidebar, prompt:
-   ```text
-   Initialize the agent as per governing files in this repository.
-   ```
+### 2. Codex (OpenAI Codex / ChatGPT)
+- **Chat / Desktop Prompt**:
+  ```text
+  Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
+  ```
+- **Codex CLI / Terminal One-Liner**:
+  ```bash
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && codex "Initialize the agent as per governing files in this repository."
+  ```
+
+### 3. OpenCode
+- **Chat / Desktop Prompt**:
+  ```text
+  Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
+  ```
+- **OpenCode CLI / Terminal One-Liner**:
+  ```bash
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && opencode "Initialize the agent as per governing files in this repository."
+  ```
+
+### 4. Antigravity (Desktop & CLI)
+- **Antigravity Desktop (One-Click Prompt)**:
+  Open **Antigravity Desktop**, create a new chat in an empty workspace, and send:
+  ```text
+  Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
+  ```
+  *The agent will autonomously clone the repository, bootstrap the toolchain, and greet you with the available design options.*
+- **Antigravity CLI (`agy` Terminal One-Liner)**:
+  ```bash
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && agy -i "Initialize the agent as per governing files in this repository."
+  ```
+  *(Or use `agy -p "<prompt>"` for headless print mode)*
+- **Antigravity IDE**:
+  1. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>), select **Git: Clone**, and enter:
+     ```text
+     https://github.com/cholan2100/rf-agent.git
+     ```
+  2. In the agent sidebar, prompt:
+     ```text
+     Initialize the agent as per governing files in this repository.
+     ```
 
 ---
 
