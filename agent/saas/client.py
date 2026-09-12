@@ -15,7 +15,34 @@ class RFSaasClient:
     """Client for communicating with the Hosted RF Suite SaaS service."""
 
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None):
-        self.base_url = (base_url or os.getenv("RF_SAAS_URL", "http://127.0.0.1:8000")).rstrip("/")
+        saas_url = base_url or os.getenv("RF_SAAS_URL")
+        if not saas_url:
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            env_file = os.path.join(repo_root, ".env")
+            if not os.path.exists(env_file):
+                try:
+                    with open(env_file, "w", encoding="utf-8") as f:
+                        f.write(
+                            "# RF Suite SaaS Microservice Configuration\n"
+                            "RF_BACKEND=aws_saas\n"
+                            "RF_SAAS_URL=http://rf.nakedcircuits.com:8000\n"
+                        )
+                except Exception:
+                    pass
+            for p in [".env", env_file]:
+                if os.path.exists(p):
+                    try:
+                        with open(p, "r", encoding="utf-8") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line.startswith("RF_SAAS_URL="):
+                                    saas_url = line.split("=", 1)[1].strip().strip('"').strip("'")
+                                    break
+                    except Exception:
+                        pass
+                if saas_url:
+                    break
+        self.base_url = (saas_url or "http://rf.nakedcircuits.com:8000").rstrip("/")
         self.api_key = api_key or os.getenv("RF_SAAS_API_KEY", "")
 
     def _request(

@@ -33,11 +33,28 @@ All tools inside the container are executed from the repository root via the cro
 
 ---
 
-## 1.2 Mandatory Turn 0: Repository Self-Provisioning Protocol (Submodule + Docker + Greeting)
+## 1.2 Mandatory Turn 0: Repository Self-Provisioning Protocol (Environment + Submodule + Backend + Greeting)
 
 > [!CRITICAL]
 > **BEFORE LAUNCHING ANY DESIGN WORKFLOW OR STAGE:**
-> The AI Agent MUST verify the repository is fully provisioned. Provisioning is a strict sequence of gates: **(Gate 1)** the `rf-suite` submodule is checked out, **(Gate 2)** the `rf-suite` Docker image is built, and **(Gate 3)** post-initialization readiness and user invitation greeting. Never attempt Gate 2 before Gate 1 — every build command targets `rf-suite/`, which is empty in a fresh clone. Keep the user informed at every step.
+> The AI Agent MUST verify the repository is fully provisioned. Provisioning is a strict sequence of gates:
+> - **(Step 0.0)** `.env` environment file bootstrapping: If `.env` does not exist, automatically create it with default AWS SaaS endpoint (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=http://rf.nakedcircuits.com:8000`) and **zero AWS credentials**.
+> - **(Gate 1)** the `rf-suite` submodule is checked out.
+> - **(Gate 2)** execution backend selection & readiness verification.
+> - **(Gate 3)** post-initialization readiness and user invitation greeting.
+> Keep the user informed at every step.
+
+### Step 0.0: Automatic `.env` Environment Bootstrapping (Zero AWS Credentials)
+Before checking any solvers, the agent checks if `.env` exists at the repository root.
+- **If `.env` is missing (fresh clone)**:
+  The agent automatically creates `.env` with the default SaaS microservice domain and **no AWS credentials**:
+  ```ini
+  # RF Suite SaaS Microservice Configuration
+  RF_BACKEND=aws_saas
+  RF_SAAS_URL=http://rf.nakedcircuits.com:8000
+  ```
+  Users do **not** have to bother with manual `.env` file management or AWS IAM credentials. The cloud SaaS microservice handles all compute headlessly.
+- **If `.env` exists**: The agent respects the existing user configuration.
 
 ### Gate 1 (Step 0.1): Submodule Initialization & Verification
 > [!IMPORTANT]
@@ -62,7 +79,7 @@ All tools inside the container are executed from the repository root via the cro
 >      ```
 >    - **VERIFY**: Re-run the `ls` check above and confirm the launcher now exists. If initialization fails (network or authentication error), report the failure to the user and stop.
 >    - **NOTIFY USER ON COMPLETION**:
->      > *"The `rf-suite` submodule is initialized! Proceeding to Docker readiness verification (Gate 2)..."*
+>      > *"The `rf-suite` submodule is initialized! Proceeding to Backend readiness verification (Gate 2)..."*
 >
 > 3. **IF THE LAUNCHER FILE EXISTS**: Gate 1 passes — proceed directly to Gate 2 (Step 0.2).
 
@@ -70,9 +87,9 @@ All tools inside the container are executed from the repository root via the cro
 
 > [!IMPORTANT]
 > **Default Execution Backend**: `RF_BACKEND=aws_saas` is the **canonical default and recommended option**.
-> Pure cloud microservice architecture with zero workstation EDA/CAD dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL required on the developer host).
+> Pure cloud microservice architecture pointing to `http://rf.nakedcircuits.com:8000` with zero workstation EDA/CAD dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL required on the developer host).
 > During repository bootstrapping / initialization (Turn 0), the AI Agent MUST check with the user via `ask_question` to confirm which backend to configure:
-> 1. **SaaS on AWS** (easy, zero setup, cloud-native microservice) — Recommended
+> 1. **SaaS on AWS (`http://rf.nakedcircuits.com:8000`)** (easy, zero setup, cloud-native microservice) — Recommended
 > 2. **Direct Local Commands execution** (fastest local execution, WSL & Docker required)
 > 3. **SaaS on Local WSL** (deployment testing)
 
@@ -88,17 +105,12 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
 #### Step 2b: Execution Backend Setup & Verification Based on User Selection
 
 * **Option 1: If User Selects SaaS on AWS (`RF_BACKEND=aws_saas` - Recommended AWS Hosted SaaS Microservice)**:
-  - **Environment Configuration**: Ensure `RF_BACKEND=aws_saas` and `RF_SAAS_URL=http://<aws-public-ip>:8000` are active in `.env`.
+  - **Environment Configuration**: Active in `.env` (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=http://rf.nakedcircuits.com:8000`). Zero AWS credentials required.
   - **Operating Mechanism**: Pure cloud microservice architecture. Zero workstation EDA dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL needed on the developer host). The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `RFSaasClient` or `rf-suite\bin\rf-client.bat`.
   - **No Direct AWS Commands**: The agent NEVER uses AWS SSM or SSH to execute commands directly on AWS. The ONLY deployment in AWS is the containerized SaaS microservice.
-  - **Automated Deployment**: If not yet deployed, deploy via one command:
-    ```bash
-    python aws/deploy_saas.py
-    ```
-    This provisions the CloudFormation stack (`rf-suite-saas`) with VPC, static Elastic IP, and EC2 host running the containerized FastAPI microservice on port 8000, automatically updates `.env`, and verifies `/health`.
   - **Verification**:
     ```bash
-    curl -s <RF_SAAS_URL>/health
+    curl -s http://rf.nakedcircuits.com:8000/health
     ```
     - Expected response: `{"status":"healthy","service":"rf-suite-saas", ...}`.
 

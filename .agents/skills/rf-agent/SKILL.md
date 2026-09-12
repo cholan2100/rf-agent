@@ -18,10 +18,11 @@ description: >-
 When this skill activates (RF circuit / PCB design, simulation, or fabrication request):
 
 1. **Read `AGENTS.md` first** — it defines the complete 9-stage workflow and all engineering rules.
-2. **Turn 0 — Repository Self-Provisioning (three gates, strictly in order; exact commands: `AGENTS.md` §1.2)**:
+2. **Turn 0 — Repository Self-Provisioning (strictly in order; exact commands: `AGENTS.md` §1.2)**:
+   - **Step 0 — Environment File**: If `.env` is missing, auto-create it with `RF_BACKEND=aws_saas` and `RF_SAAS_URL=http://rf.nakedcircuits.com:8000` with **zero AWS credentials**.
    - **Gate 1 — Submodule**: If `rf-suite\bin\rf-run.bat` (Windows) or `./rf-suite/bin/rf-run` (Linux/WSL) is **missing** (fresh clones do not check out submodules by default), inform the user, run `git submodule update --init --recursive`, and verify the launcher now exists before continuing.
    - **Gate 2 — Backend Selection & Verification**: Default to `RF_BACKEND=aws_saas`. Unless explicitly specified in the user prompt, check with the user via `ask_question` to select between:
-     1. `(Recommended) SaaS on AWS (easy, pure cloud microservice, zero local EDA dependencies)`: offloads compute to AWS microservice via REST/FastMCP (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=<aws-url>`); probe `/health`.
+     1. `(Recommended) SaaS on AWS (easy, pure cloud microservice, zero local EDA dependencies)`: offloads compute to AWS microservice via REST/FastMCP (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=http://rf.nakedcircuits.com:8000`); probe `http://rf.nakedcircuits.com:8000/health`.
      2. `Direct Local Commands execution (fastest local execution, WSL installation required)`: verify `rf-suite:latest` Docker image exists (build via `docker compose build` in `rf-suite/` if missing).
      3. `SaaS on Local WSL (deployment testing)`: tests REST/FastMCP pipeline locally (`RF_BACKEND=saas`, `RF_SAAS_URL=http://127.0.0.1:8000`); probe `http://127.0.0.1:8000/health` (launch via `rf-suite\bin\rf-saas-server.bat` if needed).
    - **Gate 3 — Mandatory Final Invitation Greeting**: Every time this repository is used to initialize the agent, conclude by presenting the final invitation greeting asking what RF circuit to design today, with example prompts (`AGENTS.md` §1.2). If a circuit description was already provided, present the greeting and proceed immediately to Task 1.

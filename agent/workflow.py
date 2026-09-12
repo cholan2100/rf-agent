@@ -263,7 +263,43 @@ def load_spec_from_json(json_path: str) -> CircuitSpec:
     )
 
 
+def ensure_env_file(repo_root: Optional[str] = None) -> str:
+    """Ensures .env exists with default SaaS configuration and no AWS credentials."""
+    if repo_root is None:
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    env_path = os.path.join(repo_root, ".env")
+    if not os.path.exists(env_path):
+        try:
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write(
+                    "# RF Suite SaaS Microservice Configuration\n"
+                    "RF_BACKEND=aws_saas\n"
+                    "RF_SAAS_URL=http://rf.nakedcircuits.com:8000\n"
+                )
+            print("[RF Agent] Bootstrapped default .env with RF_BACKEND=aws_saas and RF_SAAS_URL=http://rf.nakedcircuits.com:8000")
+        except Exception:
+            pass
+    return env_path
+
+
 def main():
+    ensure_env_file()
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    env_file = os.path.join(repo_root, ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
     parser = argparse.ArgumentParser(description="RF AI Suite - Headless Agent Workflow Engine")
     parser.add_argument("--desc", type=str, help="Natural language description of the RF circuit")
     parser.add_argument("--spec-file", type=str, help="Path to existing spec.json")

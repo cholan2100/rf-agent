@@ -130,6 +130,15 @@ The Docker container daemon location depends on the host operating system:
 
 Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Provisioning Protocol** (canonical, detailed version: [`AGENTS.md` §1.2](AGENTS.md)):
 
+0. **Step 0 — Automatic `.env` Bootstrapping**:
+   If `.env` does not exist (e.g. fresh clone), the agent automatically creates it configured for the hosted AWS SaaS microservice with **zero AWS credentials**:
+   ```ini
+   # RF Suite SaaS Microservice Configuration
+   RF_BACKEND=aws_saas
+   RF_SAAS_URL=http://rf.nakedcircuits.com:8000
+   ```
+   Users do not need to configure AWS credentials or install EDA tools to begin designing.
+
 1. **Gate 1 — Submodule Initialization**:
    A fresh `git clone` does **not** check out submodules by default, so `rf-suite/` will be empty and the launchers will be missing. Verify and bootstrap:
    ```bash
@@ -144,9 +153,9 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Prov
    > Tip for users: cloning with `git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git` pre-satisfies Gate 1.
 
 2. **Gate 2 — Execution Backend Selection & Readiness**:
-   The default recommended execution backend is **SaaS on AWS** (`RF_BACKEND=aws_saas`), providing a pure cloud microservice architecture with zero workstation EDA/CAD dependencies on the developer host.
+   The default recommended execution backend is **SaaS on AWS** (`RF_BACKEND=aws_saas`), providing a pure cloud microservice architecture connecting to `http://rf.nakedcircuits.com:8000` with zero workstation EDA/CAD dependencies on the developer host.
    During Turn 0 initialization, the agent prompts the user to select the backend:
-   - **(Recommended) SaaS on AWS** (`RF_BACKEND=aws_saas`): Offloads EDA/CAD compute to the cloud microservice over HTTP REST (`RF_SAAS_URL`); verifies via `curl -s <RF_SAAS_URL>/health`.
+   - **(Recommended) SaaS on AWS** (`RF_BACKEND=aws_saas`): Offloads EDA/CAD compute to the cloud microservice over HTTP REST (`http://rf.nakedcircuits.com:8000`); verifies via `curl -s http://rf.nakedcircuits.com:8000/health`.
    - **Direct Local Commands** (`RF_BACKEND=local`): Executes EDA solvers headlessly inside the local Docker container via `rf-suite\bin\rf-run.bat` or `./rf-suite/bin/rf-run`.
    - **SaaS on Local WSL** (`RF_BACKEND=saas`): Local microservice deployment testing at `http://127.0.0.1:8000/health`.
 
