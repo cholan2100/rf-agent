@@ -66,13 +66,14 @@ All tools inside the container are executed from the repository root via the cro
 >
 > 3. **IF THE LAUNCHER FILE EXISTS**: Gate 1 passes — proceed directly to Gate 2 (Step 0.2).
 
-### Gate 2 (Step 0.2): Execution Backend Selection & Readiness (Local Docker vs AWS EC2)
+### Gate 2 (Step 0.2): Execution Backend Selection & Readiness (AWS SaaS vs Local Docker / WSL)
 
 > [!IMPORTANT]
-> **Default Execution Backend**: `RF_BACKEND=local` is the **canonical default**.
+> **Default Execution Backend**: `RF_BACKEND=aws_saas` is the **canonical default and recommended option**.
+> Pure cloud microservice architecture with zero workstation EDA/CAD dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL required on the developer host).
 > During repository bootstrapping / initialization (Turn 0), the AI Agent MUST check with the user via `ask_question` to confirm which backend to configure:
-> 1. **Direct Local Commands execution** (fastest, WSL installation required) — Recommended
-> 2. **SaaS on AWS** (easy, no setup)
+> 1. **SaaS on AWS** (easy, zero setup, cloud-native microservice) — Recommended
+> 2. **Direct Local Commands execution** (fastest local execution, WSL & Docker required)
 > 3. **SaaS on Local WSL** (deployment testing)
 
 #### Step 2a: Mandatory User Backend Confirmation via `ask_question`
@@ -80,13 +81,28 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
 
 - **Question**: `"Which RF toolchain execution backend would you like to use for simulations and PCB design?"`
 - **Options**:
-  - `(Recommended) Direct Local Commands execution (fastest, WSL installation required)`
-  - `SaaS on AWS (easy, no setup)`
+  - `(Recommended) SaaS on AWS (easy, pure cloud microservice, zero local EDA dependencies)`
+  - `Direct Local Commands execution (fastest local execution, WSL installation required)`
   - `SaaS on Local WSL (deployment testing)`
 
 #### Step 2b: Execution Backend Setup & Verification Based on User Selection
 
-* **Option 1: If User Selects Direct Local Commands (`RF_BACKEND=local` - Recommended)**:
+* **Option 1: If User Selects SaaS on AWS (`RF_BACKEND=aws_saas` - Recommended AWS Hosted SaaS Microservice)**:
+  - **Environment Configuration**: Ensure `RF_BACKEND=aws_saas` and `RF_SAAS_URL=http://<aws-public-ip>:8000` are active in `.env`.
+  - **Operating Mechanism**: Pure cloud microservice architecture. Zero workstation EDA dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL needed on the developer host). The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `RFSaasClient` or `rf-suite\bin\rf-client.bat`.
+  - **No Direct AWS Commands**: The agent NEVER uses AWS SSM or SSH to execute commands directly on AWS. The ONLY deployment in AWS is the containerized SaaS microservice.
+  - **Automated Deployment**: If not yet deployed, deploy via one command:
+    ```bash
+    python aws/deploy_saas.py
+    ```
+    This provisions the CloudFormation stack (`rf-suite-saas`) with VPC, static Elastic IP, and EC2 host running the containerized FastAPI microservice on port 8000, automatically updates `.env`, and verifies `/health`.
+  - **Verification**:
+    ```bash
+    curl -s <RF_SAAS_URL>/health
+    ```
+    - Expected response: `{"status":"healthy","service":"rf-suite-saas", ...}`.
+
+* **Option 2: If User Selects Direct Local Commands (`RF_BACKEND=local`)**:
   - **Environment Configuration**: Ensure `RF_BACKEND=local` is active in `.env`.
   - **Operating Mechanism**: The agent executes EDA/simulation solvers headlessly inside the local Docker container via the standard launchers (`rf-suite\bin\rf-run.bat` on Windows or `./rf-suite/bin/rf-run` on Linux/WSL).
   - **Docker Host Architecture**:
@@ -113,21 +129,6 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
        ```
     3. **NOTIFY USER ON COMPLETION**:
        > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
-
-* **Option 2: If User Selects SaaS on AWS (`RF_BACKEND=aws_saas` - AWS Hosted SaaS Microservice)**:
-  - **Environment Configuration**: Ensure `RF_BACKEND=aws_saas` and `RF_SAAS_URL=http://<aws-public-ip>:8000` are active in `.env`.
-  - **Operating Mechanism**: Pure cloud microservice architecture. Zero workstation EDA dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL needed on the developer host). The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `RFSaasClient` or `rf-suite\bin\rf-client.bat`.
-  - **No Direct AWS Commands**: The agent NEVER uses AWS SSM or SSH to execute commands directly on AWS. The ONLY deployment in AWS is the containerized SaaS microservice.
-  - **Automated Deployment**: If not yet deployed, deploy via one command:
-    ```bash
-    python aws/deploy_saas.py
-    ```
-    This provisions the CloudFormation stack (`rf-suite-saas`) with VPC, static Elastic IP, and EC2 host running the containerized FastAPI microservice on port 8000, automatically updates `.env`, and verifies `/health`.
-  - **Verification**:
-    ```bash
-    curl -s <RF_SAAS_URL>/health
-    ```
-    - Expected response: `{"status":"healthy","service":"rf-suite-saas", ...}`.
 
 * **Option 3: If User Selects SaaS on Local WSL (`RF_BACKEND=saas` - Local Deployment Testing)**:
   - **Environment Configuration**: Ensure `RF_BACKEND=saas` and `RF_SAAS_URL=http://127.0.0.1:8000` are active in `.env`.
@@ -202,6 +203,14 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
 > 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Backend), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
+>    - **For SaaS Backend (Recommended - AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
+>      ```bash
+>      # Windows (Pure native batch REST client - Zero WSL or Docker required):
+>      rf-suite\bin\rf-client.bat -ProjectName "<name>" -Desc "<circuit description>" -Stages schematic
+>
+>      # Cross-platform Python workflow (calls Hosted SaaS REST endpoint directly):
+>      python -m agent.workflow --desc "<circuit description>" --backend aws_saas --stages schematic
+>      ```
 >    - **For Direct Local Commands (`RF_BACKEND=local`)**:
 >      ```bash
 >      # Windows:
@@ -209,14 +218,6 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >
 >      # Linux / WSL:
 >      ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
->      ```
->    - **For SaaS Backend (AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
->      ```bash
->      # Windows (Pure native batch REST client - Zero WSL or Docker required):
->      rf-suite\bin\rf-client.bat -ProjectName "<name>" -Desc "<circuit description>" -Stages schematic
->
->      # Cross-platform Python workflow (calls Hosted SaaS REST endpoint directly):
->      python -m agent.workflow --desc "<circuit description>" --backend aws_saas --stages schematic
 >      ```
 >    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
 >    If no circuit description was given yet (e.g., initial repository checkout or environment setup), deliver the Invitation Greeting (§1.2 Gate 3) and await the user's circuit prompt.

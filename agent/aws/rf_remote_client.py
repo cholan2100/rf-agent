@@ -58,7 +58,7 @@ def get_aws_config() -> Dict[str, str]:
     """Returns the consolidated AWS configuration."""
     load_env_file()
     return {
-        "backend": os.getenv("RF_BACKEND", "local").lower(),
+        "backend": os.getenv("RF_BACKEND", "aws_saas").lower(),
         "region": os.getenv("AWS_REGION", "us-east-1"),
         "instance_id": os.getenv("AWS_INSTANCE_ID", ""),
         "bucket": os.getenv("AWS_S3_BUCKET", ""),

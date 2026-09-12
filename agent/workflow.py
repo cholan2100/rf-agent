@@ -278,7 +278,7 @@ def main():
     parser.add_argument("--em-mode", type=str, choices=["traces", "full_board"], default="traces")
     parser.add_argument("--stages", type=str, default=None, help="Comma-separated list of stages to run")
     parser.add_argument("--output-dir", type=str, default="projects", help="Output directory")
-    parser.add_argument("--backend", type=str, choices=["local", "saas", "aws_saas", "aws"], default=os.getenv("RF_BACKEND", "local"), help="Execution backend (local, saas, aws_saas, aws)")
+    parser.add_argument("--backend", type=str, choices=["local", "saas", "aws_saas", "aws"], default=os.getenv("RF_BACKEND", "aws_saas"), help="Execution backend (local, saas, aws_saas, aws)")
     parser.add_argument("--json", action="store_true", help="Print only JSON summary to stdout")
     args = parser.parse_args()
 

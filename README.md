@@ -143,17 +143,14 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Prov
    ```
    > Tip for users: cloning with `git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git` pre-satisfies Gate 1.
 
-2. **Gate 2 — Docker Readiness**:
-   Before launching any design stage (e.g. Task 1 Schematic), the agent tests whether the `rf-suite` Docker image is available:
-   ```bash
-   # On Windows (Docker is in WSL Debian by default):
-   wsl -d Debian bash -c "docker images -q rf-suite:latest"
-   # Or test via the batch launcher: rf-suite\bin\rf-run.bat python --version
+2. **Gate 2 — Execution Backend Selection & Readiness**:
+   The default recommended execution backend is **SaaS on AWS** (`RF_BACKEND=aws_saas`), providing a pure cloud microservice architecture with zero workstation EDA/CAD dependencies on the developer host.
+   During Turn 0 initialization, the agent prompts the user to select the backend:
+   - **(Recommended) SaaS on AWS** (`RF_BACKEND=aws_saas`): Offloads EDA/CAD compute to the cloud microservice over HTTP REST (`RF_SAAS_URL`); verifies via `curl -s <RF_SAAS_URL>/health`.
+   - **Direct Local Commands** (`RF_BACKEND=local`): Executes EDA solvers headlessly inside the local Docker container via `rf-suite\bin\rf-run.bat` or `./rf-suite/bin/rf-run`.
+   - **SaaS on Local WSL** (`RF_BACKEND=saas`): Local microservice deployment testing at `http://127.0.0.1:8000/health`.
 
-   # On Linux (Native Docker):
-   docker images -q rf-suite:latest
-   ```
-   If NOT ready (image missing), the agent **informs the user in chat immediately**, then triggers the build:
+   If Direct Local execution is chosen and the Docker image is missing, the agent triggers the build:
    ```bash
    # On Windows (Docker in WSL Debian): compute the WSL path of <repo-root> first
    # (e.g. D:\Workspace\rf\rf-agent -> /mnt/d/Workspace/rf/rf-agent), then:
