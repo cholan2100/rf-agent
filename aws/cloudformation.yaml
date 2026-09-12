@@ -23,8 +23,8 @@ Parameters:
 
   AutoStopIdleMinutes:
     Type: Number
-    Default: 60
-    Description: 'Minutes of idle CPU (< 3% utilization) before the instance automatically stops to save costs (0 to disable)'
+    Default: 0
+    Description: 'Minutes of idle CPU (< 3% utilization) before the instance automatically stops to save costs (0 for always-on / disabled)'
 
   AmiId:
     Type: String

@@ -122,7 +122,7 @@ def main():
     region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-south-2"
     stack_name = os.getenv("AWS_STACK_NAME", "rf-suite-saas")
     instance_type = os.getenv("AWS_INSTANCE_TYPE", "m7i-flex.large")
-    auto_stop = os.getenv("AUTO_STOP_IDLE_MINS", "60")
+    auto_stop = os.getenv("AUTO_STOP_IDLE_MINS", "0")
     api_key = os.getenv("RF_SAAS_API_KEY", "")
 
     print(f"═══ RF SUITE SAAS MICROSERVICE DEPLOYER (AWS EC2) ═══")
