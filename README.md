@@ -136,8 +136,9 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Prov
    # RF Suite SaaS Microservice Configuration
    RF_BACKEND=aws_saas
    RF_SAAS_URL=http://rf.nakedcircuits.com:8000
+   RF_WAKE_URL=https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com
    ```
-   Users do not need to configure AWS credentials or install EDA tools to begin designing.
+   Users do not need to configure AWS credentials or install local EDA tools. If the EC2 host is asleep to save costs, `RF_WAKE_URL` automatically powers it on before starting design workflows.
 
 1. **Gate 1 — Submodule Initialization**:
    A fresh `git clone` does **not** check out submodules by default, so `rf-suite/` will be empty and the launchers will be missing. Verify and bootstrap:

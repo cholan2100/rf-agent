@@ -45,6 +45,24 @@ class RFSaasClient:
         self.base_url = (saas_url or "http://rf.nakedcircuits.com:8000").rstrip("/")
         self.api_key = api_key or os.getenv("RF_SAAS_API_KEY", "")
 
+        # Serverless Wake-on-Request URL
+        wake_url = os.getenv("RF_WAKE_URL")
+        if not wake_url:
+            for p in [".env", env_file]:
+                if os.path.exists(p):
+                    try:
+                        with open(p, "r", encoding="utf-8") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line.startswith("RF_WAKE_URL="):
+                                    wake_url = line.split("=", 1)[1].strip().strip('"').strip("'")
+                                    break
+                    except Exception:
+                        pass
+                if wake_url:
+                    break
+        self.wake_url = (wake_url or "https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com").rstrip("/")
+
     def _request(
         self,
         method: str,
@@ -109,6 +127,50 @@ class RFSaasClient:
         }
         return self._request("POST", "/v1/specs/synthesize", payload=payload)
 
+    def ensure_service_ready(self, timeout_seconds: int = 120) -> bool:
+        """Verifies SaaS service health; if asleep or stopped, triggers serverless wake-up."""
+        # 1. Quick probe to see if already running
+        try:
+            req = urllib.request.Request(f"{self.base_url}/health", headers={"User-Agent": "rf-agent-saas-client/1.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if data.get("status") == "healthy":
+                        return True
+        except Exception:
+            pass
+
+        # 2. Service is asleep or unreachable. Trigger Serverless Wake!
+        print(f"[RF SaaS Client] Cloud microservice is asleep ({self.base_url}). Triggering serverless wake-up...")
+        wake_url = getattr(self, "wake_url", None)
+        if wake_url:
+            try:
+                wake_req = urllib.request.Request(wake_url, headers={"User-Agent": "rf-agent-saas-client/1.0"})
+                with urllib.request.urlopen(wake_req, timeout=timeout_seconds) as wake_resp:
+                    wake_data = json.loads(wake_resp.read().decode("utf-8"))
+                    if wake_data.get("status") == "ready":
+                        elapsed = wake_data.get("elapsed_seconds", "")
+                        print(f"✔ Cloud microservice successfully woke up in {elapsed}s!")
+                        return True
+            except Exception as e:
+                print(f"[RF SaaS Client] Notice from wake trigger: {e}")
+
+        # 3. Poll /health until online
+        import time
+        start = time.time()
+        while (time.time() - start) < timeout_seconds:
+            time.sleep(3)
+            try:
+                req = urllib.request.Request(f"{self.base_url}/health", headers={"User-Agent": "rf-agent-saas-client/1.0"})
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    if resp.status == 200:
+                        print("✔ Cloud microservice is online and healthy!")
+                        return True
+            except Exception:
+                continue
+
+        raise RuntimeError(f"RF Suite SaaS microservice at {self.base_url} failed to respond after wake-up request.")
+
     def run_stages(
         self,
         project_name: str,
@@ -117,6 +179,9 @@ class RFSaasClient:
         desc: Optional[str] = None
     ) -> Dict[str, Any]:
         """Executes one or more engineering stages on the remote service."""
+        # Ensure the cloud instance is awake before running
+        self.ensure_service_ready()
+
         payload = {
             "stages": stages,
             "spec": spec,

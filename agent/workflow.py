@@ -275,8 +275,9 @@ def ensure_env_file(repo_root: Optional[str] = None) -> str:
                     "# RF Suite SaaS Microservice Configuration\n"
                     "RF_BACKEND=aws_saas\n"
                     "RF_SAAS_URL=http://rf.nakedcircuits.com:8000\n"
+                    "RF_WAKE_URL=https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com\n"
                 )
-            print("[RF Agent] Bootstrapped default .env with RF_BACKEND=aws_saas and RF_SAAS_URL=http://rf.nakedcircuits.com:8000")
+            print("[RF Agent] Bootstrapped default .env with RF_BACKEND=aws_saas, RF_SAAS_URL, and RF_WAKE_URL")
         except Exception:
             pass
     return env_path

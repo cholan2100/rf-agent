@@ -23,8 +23,8 @@ Parameters:
 
   AutoStopIdleMinutes:
     Type: Number
-    Default: 0
-    Description: 'Minutes of idle CPU (< 3% utilization) before the instance automatically stops to save costs (0 for always-on / disabled)'
+    Default: 30
+    Description: 'Minutes of idle CPU (< 3% utilization) before instance automatically stops to save costs. Serverless Wake Lambda auto-starts it on request.'
 
   AmiId:
     Type: String
@@ -280,10 +280,118 @@ Resources:
         - Key: Name
           Value: rf-suite-saas-eip
 
+  # ----------------------------------------------------------------------------
+  # Serverless Wake-on-Request Lambda & API Gateway
+  # ----------------------------------------------------------------------------
+  WakeLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-wake-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: EC2WakePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                  - ec2:StartInstances
+                Resource: '*'
+
+  WakeLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-wake'
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt WakeLambdaRole.Arn
+      Timeout: 120
+      MemorySize: 256
+      Environment:
+        Variables:
+          INSTANCE_ID: !Ref RFSuiteInstance
+          REGION: !Ref 'AWS::Region'
+          EIP: !Ref InstanceEIP
+          PORT: '8000'
+          DOMAIN_URL: 'http://rf.nakedcircuits.com:8000'
+      Code:
+        ZipFile: |
+          import json, os, time, urllib.request, boto3
+          INSTANCE_ID = os.environ.get("INSTANCE_ID", "")
+          REGION = os.environ.get("REGION", "ap-south-2")
+          EIP = os.environ.get("EIP", "")
+          PORT = os.environ.get("PORT", "8000")
+          DOMAIN_URL = os.environ.get("DOMAIN_URL", "http://rf.nakedcircuits.com:8000")
+          ec2 = boto3.client("ec2", region_name=REGION)
+          def check_health(url):
+              try:
+                  req = urllib.request.Request(f"{url.rstrip('/')}/health", headers={"User-Agent": "rf-wake/1.0"})
+                  with urllib.request.urlopen(req, timeout=3) as resp:
+                      return json.loads(resp.read().decode("utf-8")).get("status") == "healthy"
+              except Exception:
+                  return False
+          def handler(event, context):
+              start_time = time.time()
+              cors = {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"}
+              resp = ec2.describe_instances(InstanceIds=[INSTANCE_ID])
+              state = resp["Reservations"][0]["Instances"][0]["State"]["Name"]
+              eip_url = f"http://{EIP}:{PORT}"
+              if state == "running" and (check_health(eip_url) or check_health(DOMAIN_URL)):
+                  return {"statusCode": 200, "headers": cors, "body": json.dumps({"status": "ready", "saas_url": DOMAIN_URL, "elapsed_seconds": round(time.time() - start_time, 2), "message": "Already running."})}
+              if state in ("stopped", "stopping"):
+                  while state == "stopping" and (time.time() - start_time) < 40:
+                      time.sleep(3)
+                      state = ec2.describe_instances(InstanceIds=[INSTANCE_ID])["Reservations"][0]["Instances"][0]["State"]["Name"]
+                  ec2.start_instances(InstanceIds=[INSTANCE_ID])
+              while (time.time() - start_time) < 90:
+                  time.sleep(3)
+                  if ec2.describe_instances(InstanceIds=[INSTANCE_ID])["Reservations"][0]["Instances"][0]["State"]["Name"] == "running":
+                      if check_health(eip_url) or check_health(DOMAIN_URL):
+                          return {"statusCode": 200, "headers": cors, "body": json.dumps({"status": "ready", "saas_url": DOMAIN_URL, "elapsed_seconds": round(time.time() - start_time, 2), "message": "Instance woke up successfully."})}
+              return {"statusCode": 504, "headers": cors, "body": json.dumps({"status": "starting", "message": "Still initializing."})}
+
+  WakeApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-wake-api'
+      ProtocolType: HTTP
+      Target: !GetAtt WakeLambdaFunction.Arn
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - '*'
+
+  WakeApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WakeLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WakeApi}/*'
+
 Outputs:
   SaaSUrl:
     Description: 'Public URL of the RF Suite SaaS REST Microservice'
     Value: !Sub 'http://${InstanceEIP}:8000'
+
+  WakeUrl:
+    Description: 'Serverless Wake-on-Request Public HTTPS Endpoint'
+    Value: !GetAtt WakeApi.ApiEndpoint
 
   SwaggerDocsUrl:
     Description: 'Interactive OpenAPI / Swagger Documentation'
@@ -310,3 +418,4 @@ Outputs:
     Value: !Sub |
       RF_BACKEND=aws_saas
       RF_SAAS_URL=http://${InstanceEIP}:8000
+      RF_WAKE_URL=${WakeApi.ApiEndpoint}
