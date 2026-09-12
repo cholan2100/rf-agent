@@ -136,7 +136,7 @@ Autonomous agents and automated CI runners must adhere to the **Turn 0 Self-Prov
    # RF Suite SaaS Microservice Configuration
    RF_BACKEND=aws_saas
    RF_SAAS_URL=http://rf.nakedcircuits.com:8000
-   RF_WAKE_URL=https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com
+   RF_WAKE_URL=https://rfhealth.nakedcircuits.com
    ```
    Users do not need to configure AWS credentials or install local EDA tools. If the EC2 host is asleep to save costs, `RF_WAKE_URL` automatically powers it on before starting design workflows.
 

@@ -142,18 +142,25 @@ class RFSaasClient:
 
         # 2. Service is asleep or unreachable. Trigger Serverless Wake!
         print(f"[RF SaaS Client] Cloud microservice is asleep ({self.base_url}). Triggering serverless wake-up...")
+        wake_urls = []
         wake_url = getattr(self, "wake_url", None)
         if wake_url:
+            wake_urls.append(wake_url)
+        default_wake_url = "https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com"
+        if default_wake_url not in wake_urls:
+            wake_urls.append(default_wake_url)
+
+        for w_url in wake_urls:
             try:
-                wake_req = urllib.request.Request(wake_url, headers={"User-Agent": "rf-agent-saas-client/1.0"})
+                wake_req = urllib.request.Request(w_url, headers={"User-Agent": "rf-agent-saas-client/1.0"})
                 with urllib.request.urlopen(wake_req, timeout=timeout_seconds) as wake_resp:
                     wake_data = json.loads(wake_resp.read().decode("utf-8"))
                     if wake_data.get("status") == "ready":
                         elapsed = wake_data.get("elapsed_seconds", "")
-                        print(f"✔ Cloud microservice successfully woke up in {elapsed}s!")
+                        print(f"✔ Cloud microservice successfully woke up via {w_url} in {elapsed}s!")
                         return True
             except Exception as e:
-                print(f"[RF SaaS Client] Notice from wake trigger: {e}")
+                print(f"[RF SaaS Client] Notice from wake trigger ({w_url}): {e}")
 
         # 3. Poll /health until online
         import time

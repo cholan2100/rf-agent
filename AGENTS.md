@@ -52,7 +52,7 @@ Before checking any solvers, the agent checks if `.env` exists at the repository
   # RF Suite SaaS Microservice Configuration
   RF_BACKEND=aws_saas
   RF_SAAS_URL=http://rf.nakedcircuits.com:8000
-  RF_WAKE_URL=https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com
+  RF_WAKE_URL=https://rfhealth.nakedcircuits.com
   ```
   Users do **not** have to bother with manual `.env` file management or AWS IAM credentials. The cloud SaaS microservice handles all compute headlessly.
 - **If `.env` exists**: The agent respects the existing user configuration.
@@ -106,7 +106,7 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
 #### Step 2b: Execution Backend Setup & Verification Based on User Selection
 
 * **Option 1: If User Selects SaaS on AWS (`RF_BACKEND=aws_saas` - Recommended AWS Hosted SaaS Microservice)**:
-  - **Environment Configuration**: Active in `.env` (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=http://rf.nakedcircuits.com:8000`, `RF_WAKE_URL=https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com`). Zero AWS credentials required.
+  - **Environment Configuration**: Active in `.env` (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=http://rf.nakedcircuits.com:8000`, `RF_WAKE_URL=https://rfhealth.nakedcircuits.com`). Zero AWS credentials required.
   - **Operating Mechanism**: Pure cloud microservice architecture. Zero workstation EDA dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL needed on the developer host). The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `RFSaasClient` or `rf-suite\bin\rf-client.bat`.
   - **Serverless Wake-on-Request (Option C)**: If the EC2 host is asleep/stopped (due to idle cost saving), `RFSaasClient` and `rf-client.bat` automatically query `RF_WAKE_URL`, triggering an AWS Lambda function that starts the EC2 instance and waits until `/health` is ready before starting the workflow.
   - **No Direct AWS Commands**: The agent NEVER uses AWS SSM or SSH to execute commands directly on AWS. The ONLY deployment in AWS is the containerized SaaS microservice and its serverless wake trigger.
@@ -114,7 +114,7 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
     ```bash
     curl -s http://rf.nakedcircuits.com:8000/health
     # Or test the serverless wake trigger:
-    curl -s https://iltxrk3s2k.execute-api.ap-south-2.amazonaws.com
+    curl -s https://rfhealth.nakedcircuits.com
     ```
     - Expected response: `{"status":"ready", "instance_state":"running", ...}`.
 
