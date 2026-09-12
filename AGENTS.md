@@ -467,8 +467,9 @@ To maintain total transparency, stability, and engineering rigor, the agent foll
 > User review confirmations between stages MUST ALWAYS be triggered as **interactive popup modals** using `ask_question`. Never output plain-text options asking the user to type numbers or commands in chat.
 >
 > 1. **Stages with Visual Renders (Tasks 1, 2, 3, 7)**:
->    - **Turn 1**: Copy `.png` asset to `<appDataDir>\brain\<conversation-id>\` using `run_command`.
->    - **Turn 2**: Emit visible markdown text with embedded image (`![caption](file:///<appDataDir>/...)`) AND invoke `ask_question` in the exact same turn.
+>    - **Turn 1**: Copy `.png` asset from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using `run_command`.
+>    - **Turn 2**: Emit visible markdown text with embedded image (`![caption](<absolute_path>)`, e.g. `![Schematic](C:/Users/.../schematic_zoomed.png)` on Windows or `![Schematic](/home/.../schematic_zoomed.png)` on Linux) AND invoke `ask_question` in the exact same turn.
+>      *(Note: NEVER use `file:///` inside `![caption](...)` as Chromium webviews block local `file:///` resource URIs. Always use standard forward-slash absolute path `C:/Users/...` on Windows or `/path/...` on Linux)*
 >
 > 2. **Stages Without New Image Renders (Tasks 4 CAD, 5 EM, 6 Qucs, 8 Gerbers, 9 Report)**:
 >    - **Single Turn**: Emit visible markdown status/metrics table AND invoke `ask_question` directly in that same turn. Do NOT fall back to conversational text questions.
