@@ -114,16 +114,20 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
     3. **NOTIFY USER ON COMPLETION**:
        > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
 
-* **Option 2: If User Selects SaaS on AWS (`RF_BACKEND=saas` - AWS Hosted)**:
-  - **Environment Configuration**: Ensure `RF_BACKEND=saas` is active in `.env`.
-  - **Operating Mechanism**: Zero workstation dependencies. The developer machine does NOT require KiCad, FreeCAD, openEMS, Docker, or WSL installed. The agent client (`agent.workflow --backend saas` or `RFSaasClient`) communicates with the hosted AWS microservice via REST endpoints on HTTPS or Model Context Protocol (FastMCP).
-  - **Endpoint Setup**: Set `RF_SAAS_URL=<aws-saas-url>` (e.g. AWS App Runner service URL or hosted EC2 endpoint) and optional `RF_SAAS_API_KEY` in `.env`.
+* **Option 2: If User Selects SaaS on AWS (`RF_BACKEND=aws_saas` - AWS Hosted SaaS Microservice)**:
+  - **Environment Configuration**: Ensure `RF_BACKEND=aws_saas` and `RF_SAAS_URL=http://<aws-public-ip>:8000` are active in `.env`.
+  - **Operating Mechanism**: Pure cloud microservice architecture. Zero workstation EDA dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL needed on the developer host). The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `RFSaasClient` or `rf-suite\bin\rf-client.bat`.
+  - **No Direct AWS Commands**: The agent NEVER uses AWS SSM or SSH to execute commands directly on AWS. The ONLY deployment in AWS is the containerized SaaS microservice.
+  - **Automated Deployment**: If not yet deployed, deploy via one command:
+    ```bash
+    python aws/deploy_saas.py
+    ```
+    This provisions the CloudFormation stack (`rf-suite-saas`) with VPC, static Elastic IP, and EC2 host running the containerized FastAPI microservice on port 8000, automatically updates `.env`, and verifies `/health`.
   - **Verification**:
     ```bash
     curl -s <RF_SAAS_URL>/health
     ```
     - Expected response: `{"status":"healthy","service":"rf-suite-saas", ...}`.
-    - If `RF_SAAS_URL` is empty or not yet deployed: Guide the user to configure the endpoint, or offer automated cloud deployment via `python aws/deploy_saas.py` or CloudFormation.
 
 * **Option 3: If User Selects SaaS on Local WSL (`RF_BACKEND=saas` - Local Deployment Testing)**:
   - **Environment Configuration**: Ensure `RF_BACKEND=saas` and `RF_SAAS_URL=http://127.0.0.1:8000` are active in `.env`.
@@ -206,15 +210,13 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >      # Linux / WSL:
 >      ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
 >      ```
->    - **For SaaS Backend (AWS or Local WSL - `RF_BACKEND=saas`)**:
+>    - **For SaaS Backend (AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
 >      ```bash
->      # Windows (native Python if available, or via WSL Debian):
->      python -m agent.workflow --desc "<circuit description>" --backend saas --stages schematic
->      # If native Windows Python is not installed:
->      wsl -d Debian bash -c "cd <wsl-path-of-repo-root> && python3 -m agent.workflow --desc '<circuit description>' --backend saas --stages schematic"
+>      # Windows (Pure native batch REST client - Zero WSL or Docker required):
+>      rf-suite\bin\rf-client.bat -ProjectName "<name>" -Desc "<circuit description>" -Stages schematic
 >
->      # Linux / WSL:
->      python3 -m agent.workflow --desc "<circuit description>" --backend saas --stages schematic
+>      # Cross-platform Python workflow (calls Hosted SaaS REST endpoint directly):
+>      python -m agent.workflow --desc "<circuit description>" --backend aws_saas --stages schematic
 >      ```
 >    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
 >    If no circuit description was given yet (e.g., initial repository checkout or environment setup), deliver the Invitation Greeting (§1.2 Gate 3) and await the user's circuit prompt.
