@@ -152,3 +152,11 @@ class RFSaasClient:
             downloaded.append(dest)
 
         return downloaded
+
+    def delete_project(self, project_name: str) -> Dict[str, Any]:
+        """Purges a specific project from the remote SaaS service."""
+        return self._request("DELETE", f"/v1/projects/{project_name}")
+
+    def purge_all_projects(self) -> Dict[str, Any]:
+        """Purges all project directories on the remote SaaS service."""
+        return self._request("DELETE", "/v1/projects")

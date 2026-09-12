@@ -311,3 +311,26 @@ def get_project_artifact(project_name: str, file_path: str):
         media_type=media_type,
         filename=os.path.basename(full_path)
     )
+
+
+@app.delete("/v1/projects/{project_name}", dependencies=[Depends(verify_api_key)])
+def delete_project(project_name: str):
+    """Purges a single project directory."""
+    project_dir = os.path.join(PROJECTS_ROOT, project_name)
+    if not os.path.exists(project_dir):
+        raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
+    shutil.rmtree(project_dir, ignore_errors=True)
+    return {"status": "success", "message": f"Project '{project_name}' purged"}
+
+
+@app.delete("/v1/projects", dependencies=[Depends(verify_api_key)])
+def purge_all_projects():
+    """Purges all project directories."""
+    purged = []
+    if os.path.exists(PROJECTS_ROOT):
+        for item in os.listdir(PROJECTS_ROOT):
+            p = os.path.join(PROJECTS_ROOT, item)
+            if os.path.isdir(p):
+                shutil.rmtree(p, ignore_errors=True)
+                purged.append(item)
+    return {"status": "success", "purged_projects": purged}
