@@ -236,6 +236,7 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >      ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
 >      ```
 >    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
+>    **MANDATORY IMMEDIATE RENDER DISPLAY**: As soon as Task 1 finishes, copy `schematic_zoomed.png` to `<appDataDir>\brain\<conversation-id>\` and IMMEDIATELY display the synthesized schematic render in chat text with `![Schematic](<absolute_path>)` and component specs. NEVER prompt to proceed or move to PCB layout without showing the schematic image!
 >    If no circuit description was given yet (e.g., initial repository checkout or environment setup), deliver the Invitation Greeting (§1.2 Gate 3) and await the user's circuit prompt.
 
 ---
@@ -462,22 +463,24 @@ As an autonomous agent, you must ensure:
 To maintain total transparency, stability, and engineering rigor, the agent follows a strict **Interactive Popup Modal Review Protocol** (`ask_question`):
 
 ### Mandatory Rules: Interactive Modal Popups with Native Image Display
-> [!IMPORTANT]
-> **MANDATORY POPUP CONFIRMATION VIA `ask_question` (ALL STAGES, NO EXCEPTIONS)**:
-> User review confirmations between stages MUST ALWAYS be triggered as **interactive popup modals** using `ask_question`. Never output plain-text options asking the user to type numbers or commands in chat.
+> [!CRITICAL]
+> **ABSOLUTE RULE: MANDATORY IMMEDIATE VISUAL RENDER DISPLAY (ZERO OMISSIONS)**:
+> Whenever ANY stage that produces a visual deliverable completes (Task 1 Schematic, Task 3 3D Raytrace, Task 7 RF Charts), the AI Agent MUST:
+> 1. **Copy Asset**: Copy the `.png` render from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using `run_command`.
+> 2. **EMIT A COMPLETE VISIBLE CHAT TEXT RESPONSE CONTAINING THE EMBEDDED IMAGE**:
+>    - Image tag: `![caption](<absolute_path>)` (`C:/Users/...` on Windows or `/path/...` on Linux — NEVER `file:///`).
+>    - Include: Full component breakdown table, numerical values, and synthesis specifications.
+> 3. **NEVER CALL `ask_question` WITH AN EMPTY MESSAGE BODY**:
+>    When calling `ask_question`, the agent MUST write the full visual presentation and embedded image in `content` alongside the tool call. Emitting `ask_question` with empty text suppresses the visual deliverable, hiding the schematic/render from the user!
+> 4. **Sequence of Delivery**: The user MUST see the visual deliverable rendered directly in chat. Never move to subsequent tasks or present review options without showing the render first.
 >
-> 1. **Stages with Visual Renders (Tasks 1, 2, 3, 7)**:
->    - **Turn 1**: Copy `.png` asset from `projects/<name>/renders/` (or `charts/`) to `<appDataDir>\brain\<conversation-id>\` using `run_command`.
->    - **Turn 2**: Emit visible markdown text with embedded image (`![caption](<absolute_path>)`, e.g. `![Schematic](C:/Users/.../schematic_zoomed.png)` on Windows or `![Schematic](/home/.../schematic_zoomed.png)` on Linux) AND invoke `ask_question` in the exact same turn.
->      *(Note: NEVER use `file:///` inside `![caption](...)` as Chromium webviews block local `file:///` resource URIs. Always use standard forward-slash absolute path `C:/Users/...` on Windows or `/path/...` on Linux)*
+> **Stages Without New Image Renders (Tasks 2 DRC, 4 CAD, 5 EM, 6 Qucs, 8 Gerbers, 9 Report)**:
+> - Emit visible markdown metrics/status table in the message body AND invoke `ask_question` directly.
 >
-> 2. **Stages Without New Image Renders (Tasks 4 CAD, 5 EM, 6 Qucs, 8 Gerbers, 9 Report)**:
->    - **Single Turn**: Emit visible markdown status/metrics table AND invoke `ask_question` directly in that same turn. Do NOT fall back to conversational text questions.
->
-> 3. **Modal Options (3 Canonical Options)**:
->    - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.`
->    - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.`
->    - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
+> **Modal Options (3 Canonical Options)**:
+> - **Option 1 (Proceed)**: `(Recommended) <Artifact> looks good, let's move to <Next Task>.`
+> - **Option 2 (Reiterate / Adjust)**: `I'd like to adjust <parameters/components> to reiterate <Task>.`
+> - **Option 3 (Pause / Stop)**: `Pause execution here so I can review the deliverables and think through next steps.`
 
 
 ### Stage-by-Stage Review & Context-Aware Prompt Mapping
