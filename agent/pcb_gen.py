@@ -145,21 +145,102 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
             fp.SetOrientationDegrees(0.0)
             board.Add(fp)
 
-    # 2. Place other components in a grid in the center
-    c_keys = [k for k in spec.components.keys() if not k.startswith("J") and not k.startswith("H")]
-    
-    if c_keys:
-        num_c = len(c_keys)
-        spacing_x = (W - 15.0) / (num_c + 1)
+    # 2. Custom placement for Common-Base LNA
+    if "Q1" in spec.components and "MMBT5179" in spec.components["Q1"].get("value", ""):
+        # Custom placement and routing for Common-Base LNA
+        x_center = W / 2.0
+        rf_w_mm = getattr(spec, "rf_trace_width_mm", 1.87)
         
-        for i, ref in enumerate(c_keys):
+        # Helper to place components
+        def place_comp(ref, x, y, rot=0.0):
             fp, val = get_fp_for_comp(ref)
             if fp:
                 fp.SetReference(ref)
                 fp.SetValue(val)
-                x_pos = 7.5 + (i + 1) * spacing_x
-                fp.SetPosition(pcbnew.VECTOR2I(mm(x_pos), mm(y_rf)))
+                fp.SetPosition(pcbnew.VECTOR2I(mm(x), mm(y)))
+                fp.SetOrientationDegrees(rot)
                 board.Add(fp)
+                return fp
+            return None
+
+        # J3 DC Power connector (top center)
+        fp_j3 = place_comp("J3", x_center, 3.5, 0.0)
+        
+        # Input matching
+        fp_c1 = place_comp("C1", 8.0, y_rf, 0.0)
+        fp_l2 = place_comp("L2", 12.0, y_rf, 0.0)
+        
+        # Emitter bias resistor R3 (GND)
+        fp_r3 = place_comp("R3", 15.0, y_rf + 4.0, 90.0)
+        
+        # Transistor Q1 (SOT-23)
+        fp_q1 = place_comp("Q1", x_center, y_rf, -90.0)
+
+        # Base bias network
+        fp_r1 = place_comp("R1", x_center - 2.0, y_rf - 4.0, 90.0)
+        fp_r2 = place_comp("R2", x_center - 2.0, y_rf - 8.0, 90.0)
+        fp_c3 = place_comp("C3", x_center + 2.0, y_rf - 4.0, 90.0)
+
+        # Collector network
+        fp_l1 = place_comp("L1", x_center + 5.0, y_rf - 4.0, 90.0)
+        fp_l3 = place_comp("L3", x_center + 6.0, y_rf, 0.0)
+        fp_c2 = place_comp("C2", x_center + 10.0, y_rf, 0.0)
+        
+        # VCC Decoupling
+        fp_c4 = place_comp("C4", x_center + 5.0, 6.0, 0.0)
+
+        # Draw physical RF tracks (CPWG)
+        def route(x1, y1, x2, y2, net_name, width=rf_w_mm):
+            t = pcbnew.PCB_TRACK(board)
+            t.SetStart(pcbnew.VECTOR2I(mm(x1), mm(y1)))
+            t.SetEnd(pcbnew.VECTOR2I(mm(x2), mm(y2)))
+            t.SetWidth(mm(width))
+            t.SetLayer(pcbnew.F_Cu)
+            if net_name in net_dict:
+                t.SetNet(net_dict[net_name])
+            board.Add(t)
+
+        # J1 to C1 to L2 to Q1(Emitter)
+        route(2.1, y_rf, 8.0, y_rf, "RF_IN")
+        route(8.0, y_rf, 12.0, y_rf, "NET_IN_MATCH")
+        route(12.0, y_rf, x_center - 1.0, y_rf, "NET_EMITTER")
+        
+        # Emitter to R3
+        route(x_center - 1.0, y_rf, 15.0, y_rf + 4.0, "NET_EMITTER", 0.5)
+
+        # Base to R1/R2/C3
+        route(x_center, y_rf - 1.0, x_center - 2.0, y_rf - 4.0, "NET_BASE", 0.5)
+        route(x_center, y_rf - 1.0, x_center + 2.0, y_rf - 4.0, "NET_BASE", 0.5)
+        route(x_center - 2.0, y_rf - 4.0, x_center - 2.0, y_rf - 8.0, "NET_BASE", 0.5)
+
+        # Q1(Collector) to L1 and L3
+        route(x_center + 1.0, y_rf, x_center + 6.0, y_rf, "NET_COLLECTOR")
+        route(x_center + 1.0, y_rf, x_center + 5.0, y_rf - 4.0, "NET_COLLECTOR", 0.5)
+
+        # L3 to C2 to J2
+        route(x_center + 6.0, y_rf, x_center + 10.0, y_rf, "NET_OUT_MATCH")
+        route(x_center + 10.0, y_rf, W - 2.1, y_rf, "RF_OUT")
+        
+        # VDD Routing
+        route(x_center, 3.5, x_center + 5.0, 6.0, "VDD", 0.8)
+        route(x_center + 5.0, 6.0, x_center + 5.0, y_rf - 4.0, "VDD", 0.8)
+        route(x_center, 3.5, x_center - 2.0, y_rf - 4.0, "VDD", 0.8)
+
+    else:
+        # Fallback grid placement
+        c_keys = [k for k in spec.components.keys() if not k.startswith("J") and not k.startswith("H")]
+        if c_keys:
+            num_c = len(c_keys)
+            spacing_x = (W - 15.0) / (num_c + 1)
+            
+            for i, ref in enumerate(c_keys):
+                fp, val = get_fp_for_comp(ref)
+                if fp:
+                    fp.SetReference(ref)
+                    fp.SetValue(val)
+                    x_pos = 7.5 + (i + 1) * spacing_x
+                    fp.SetPosition(pcbnew.VECTOR2I(mm(x_pos), mm(y_rf)))
+                    board.Add(fp)
 
     # 3. Apply netlist to pads
     if hasattr(spec, "nets") and spec.nets:
@@ -181,11 +262,12 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
     zone.SetLayer(pcbnew.F_Cu)
     if "GND" in net_dict:
         zone.SetNet(net_dict["GND"])
-    pts = pcbnew.wxPoint_Vector()
-    pts.append(pcbnew.VECTOR2I(mm(0), mm(0)))
-    pts.append(pcbnew.VECTOR2I(mm(W), mm(0)))
-    pts.append(pcbnew.VECTOR2I(mm(W), mm(H)))
-    pts.append(pcbnew.VECTOR2I(mm(0), mm(H)))
+    pts = pcbnew.SHAPE_LINE_CHAIN()
+    pts.Append(mm(0), mm(0))
+    pts.Append(mm(W), mm(0))
+    pts.Append(mm(W), mm(H))
+    pts.Append(mm(0), mm(H))
+    pts.SetClosed(True)
     zone.AddPolygon(pts)
     zone.SetIsFilled(True)
     zone.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
@@ -197,7 +279,7 @@ def generate_pcb(spec: CircuitSpec, output_dir: str) -> tuple[str, dict]:
         b_zone.SetNet(net_dict["GND"])
     b_zone.AddPolygon(pts)
     b_zone.SetIsFilled(True)
-    b_zone.SetPadConnection(pcbnew.ZONE_CONNECTION_SOLID)
+    b_zone.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
     board.Add(b_zone)
 
     pcbnew.SaveBoard(pcb_path, board)
