@@ -218,7 +218,7 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 > **WHEN A USER ASSIGNS A CIRCUIT DESIGN OR PCB CREATION WORKFLOW:**
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
-> 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
+> 3. **DYNAMIC PCB ROUTING VIA SCRATCH SCRIPTS**: The underlying `rf-suite` workflow engine automatically parses `spec.json` and prepares the environment, but it intentionally DOES NOT contain hardcoded PCB routing templates. For Task 2 (PCB Layout), you (the AI Agent) MUST write a runtime Python scratch script (e.g., `scratch_layout.py`) that utilizes the `pcbnew` API to dynamically place components and draw physical copper tracks (CPWG) for the specific circuit requested, then execute it inside the container.
 > 4. **MANDATORY NETLIST GENERATION & USER APPROVAL ON TURN 1**:
 > [!CRITICAL]
 > **NETLIST-DRIVEN ARCHITECTURE & APPROVAL GATE**:
