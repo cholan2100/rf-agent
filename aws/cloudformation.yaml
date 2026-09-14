@@ -271,6 +271,10 @@ Resources:
           docker compose build
           docker compose up -d
 
+          # 5b. Install KiCad 3D Component Models for photorealistic KiCad raytracing
+          docker exec rf-suite-env apt-get update
+          docker exec rf-suite-env apt-get install -y --no-install-recommends kicad-packages3d
+
           # 6. Idle Auto-Shutdown Monitor (Cost Control)
           if [ "${AutoStopIdleMinutes}" -gt 0 ]; then
             cat << 'IDLE' > /usr/local/bin/rf-idle-monitor.sh
