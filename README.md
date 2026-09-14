@@ -38,6 +38,16 @@ Clone https://github.com/cholan2100/rf-agent.git with submodules and Initialize 
 
 ---
 
+## How it Works
+
+The autonomous RF hardware engineering pipeline operates as a synergistic triad:
+
+* **AI Agent Harness**: Provides intelligence using any LLM model (e.g., Claude, Gemini, GPT, DeepSeek) within your environment (such as Antigravity, Cursor, Claude Code, OpenCode, Codex, GitHub Copilot, Roo Code).
+* **`rf-agent` (This Repository)**: Guides the Agent to execute the engineering workflow step by step per governing protocols (`AGENTS.md` / `SKILLS.md`), synthesizing schematics, calculating passive component values, and formulating controlled-impedance layout specifications.
+* **`rf-suite` (Cloud SaaS or Local Dockerized)**: Provides the tools necessary to do the tasks—supplying headless KiCad 10, FreeCAD 1.0, openEMS 3D FDTD, Qucsator-RF, and ngspice solvers either via the hosted AWS SaaS microservice (`http://rf.nakedcircuits.com:8000`) or inside a local Docker container.
+
+---
+
 ## Toolchain Architecture: Dependency on `rf-suite`
 
 `rf-agent` is structured as a decoupled, two-tier architecture separating **AI Agent Design Intellect** from the **Heavy EDA & Solver Toolchain**:
