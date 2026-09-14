@@ -106,9 +106,10 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
 #### Step 2b: Execution Backend Setup & Verification Based on User Selection
 
 * **Option 1: If User Selects SaaS on AWS (`RF_BACKEND=aws_saas` - Recommended AWS Hosted SaaS Microservice)**:
-  - **Environment Configuration**: Active in `.env` (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=http://rf.nakedcircuits.com:8000`, `RF_WAKE_URL=https://rfhealth.nakedcircuits.com`). Zero AWS credentials required.
-  - **Operating Mechanism**: Pure cloud microservice architecture. Zero workstation EDA dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL needed on the developer host). The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `RFSaasClient` or `rf-suite\bin\rf-client.bat`.
-  - **Serverless Wake-on-Request (Option C)**: If the EC2 host is asleep/stopped (due to idle cost saving), `RFSaasClient` and `rf-client.bat` automatically query `RF_WAKE_URL`, triggering an AWS Lambda function that starts the EC2 instance and waits until `/health` is ready before starting the workflow.
+  - **Zero Workstation EDA, Python, or WSL Dependencies**: No KiCad, FreeCAD, openEMS, Docker, Python, or WSL needed on the developer host. **Do NOT run python or WSL on the host system** when AWS SaaS is active.
+  - **Agent Intelligence Circuit Synthesis**: The AI Agent designs the schematic using its own RF engineering intellect (component values, topology, footprints, CPWG dimensions) and passes the specification to the cloud SaaS microservice.
+  - **Operating Mechanism**: Pure cloud microservice architecture. The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `rf-suite\bin\rf-client.bat` or native PowerShell / curl.
+  - **Serverless Wake-on-Request**: If the EC2 host is asleep/stopped (due to idle cost saving), `rf-client.bat` automatically queries `RF_WAKE_URL`, triggering an AWS Lambda function that starts the EC2 instance and waits until `/health` is ready before dispatching stages.
   - **No Direct AWS Commands**: The agent NEVER uses AWS SSM or SSH to execute commands directly on AWS. The ONLY deployment in AWS is the containerized SaaS microservice and its serverless wake trigger.
   - **Verification**:
     ```bash
@@ -219,14 +220,20 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
 > 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Backend), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
->    - **For SaaS Backend (Recommended - AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
->      ```bash
->      # Windows (Pure native batch REST client - Zero WSL or Docker required):
->      rf-suite\bin\rf-client.bat -ProjectName "<name>" -Desc "<circuit description>" -Stages schematic
->
->      # Cross-platform Python workflow (calls Hosted SaaS REST endpoint directly):
->      python -m agent.workflow --desc "<circuit description>" --backend aws_saas --stages schematic
->      ```
+>    - **For SaaS Backend (Canonical Recommended - AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
+>      > [!CRITICAL]
+>      > **ZERO HOST PYTHON & ZERO HOST WSL ENFORCEMENT**:
+>      > When `RF_BACKEND=aws_saas` is active, the host system may have NO Python and NO WSL installed.
+>      > **DO NOT USE PYTHON OR WSL FROM THE HOST SYSTEM**.
+>      > 1. **Agent Intelligence**: You (the AI Agent) design the schematic using your own RF engineering intellect (calculate component values L/C/R, standard E24/E96 selections, topology, matching networks, 50Ω CPWG $w=1.87\text{ mm}, s=0.40\text{ mm}$ on 1.6mm FR4, and footprints: `0603` L, `0805` R/C, Samtec SMA edge mount).
+>      > 2. **Pass to SaaS for Tools Usage**: Dispatch the design directly to the cloud SaaS microservice using the pure native Windows launcher (`rf-suite\bin\rf-client.bat`) or native PowerShell REST call:
+>      >    ```cmd
+>      >    # Pure native Windows batch (Zero Python & Zero WSL required on host):
+>      >    rf-suite\bin\rf-client.bat -ProjectName "<name>" -Desc "<circuit description>" -Stages schematic
+>      >    # Or if passing a synthesized spec file:
+>      >    rf-suite\bin\rf-client.bat -ProjectName "<name>" -SpecFile "projects\<name>\spec.json" -Stages schematic
+>      >    ```
+>      >    The SaaS container in the cloud executes the heavy EDA tools (KiCad 10, FreeCAD, openEMS, Qucsator-RF), generates the `.kicad_sch`, renders the high-DPI zoomed vector crop, routes the PCB, and syncs all artifacts back to `projects/<name>/` over HTTP.
 >    - **For Direct Local Commands (`RF_BACKEND=local`)**:
 >      ```bash
 >      # Windows:

@@ -97,12 +97,12 @@ Resources:
       RouteTableId: !Ref RouteTable
 
   # ----------------------------------------------------------------------------
-  # Security Group: Inbound Port 8000 (SaaS API) and Port 6080 (noVNC Desktop)
+  # Security Group: Inbound Port 8000 (SaaS API)
   # ----------------------------------------------------------------------------
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: 'RF Suite SaaS Security Group - Inbound REST API and Web GUI'
+      GroupDescription: 'RF Suite SaaS Security Group - Inbound REST API'
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -110,11 +110,6 @@ Resources:
           ToPort: 8000
           CidrIp: 0.0.0.0/0
           Description: 'RF Suite FastAPI SaaS Microservice REST API'
-        - IpProtocol: tcp
-          FromPort: 6080
-          ToPort: 6080
-          CidrIp: 0.0.0.0/0
-          Description: 'RF Suite noVNC Web GUI Desktop (optional browser inspection)'
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -210,6 +205,44 @@ Resources:
           RF_BACKEND=local
           RF_SAAS_API_KEY=${ApiKeySecret}
           ENVFILE
+
+          # 3b. Configure headless entrypoint (Pure SaaS - VNC disabled)
+          cat << 'ENTRYPOINT' > /opt/rf-agent-host/rf-agent/rf-suite/entrypoint.sh
+          #!/bin/bash
+          set -e
+          ulimit -c 0 2>/dev/null || true
+          if ! command -v python >/dev/null 2>&1; then
+              ln -sf "$(command -v python3)" /usr/local/bin/python 2>/dev/null || true
+          fi
+          export DISPLAY=:99
+
+          start_xvfb() {
+              rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
+              if ! pgrep -x "Xvfb" > /dev/null; then
+                  echo "[Entrypoint] Starting Xvfb on :99 (1920x1080x24)..."
+                  Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
+                  sleep 2
+              fi
+          }
+
+          start_saas_only() {
+              start_xvfb
+              if ! pgrep -f "uvicorn" > /dev/null; then
+                  echo "[Entrypoint] Starting FastAPI SaaS Microservice on port 8000..."
+                  python3 -m uvicorn agent.saas.app:app --host 0.0.0.0 --port 8000 --timeout-keep-alive 65 &
+              fi
+              echo "RF Suite Pure Headless SaaS Container is Ready on port 8000!"
+          }
+
+          if [ $# -gt 0 ]; then
+              start_xvfb
+              exec "$@"
+          else
+              start_saas_only
+              tail -f /dev/null
+          fi
+          ENTRYPOINT
+          chmod +x /opt/rf-agent-host/rf-agent/rf-suite/entrypoint.sh
 
           # 4. Create Systemd Service for RF Suite SaaS Container
           cat << 'SERVICE' > /etc/systemd/system/rf-suite.service
@@ -400,10 +433,6 @@ Outputs:
   HealthCheckUrl:
     Description: 'SaaS Microservice Health Probe Endpoint'
     Value: !Sub 'http://${InstanceEIP}:8000/health'
-
-  WebGuiUrl:
-    Description: 'Optional noVNC Web Desktop GUI (Port 6080)'
-    Value: !Sub 'http://${InstanceEIP}:6080'
 
   PublicIp:
     Description: 'Static Elastic IP Address of the SaaS Host'

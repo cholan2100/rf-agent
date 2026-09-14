@@ -231,13 +231,11 @@ def main():
     saas_url = outputs.get("SaaSUrl", "")
     health_url = outputs.get("HealthCheckUrl", f"{saas_url}/health")
     swagger_url = outputs.get("SwaggerDocsUrl", f"{saas_url}/docs")
-    web_gui_url = outputs.get("WebGuiUrl", "")
     public_ip = outputs.get("PublicIp", "")
 
     print(f"  Public Static IP:  {public_ip}")
     print(f"  SaaS REST API:     {saas_url}")
     print(f"  Swagger Docs:      {swagger_url}")
-    print(f"  noVNC Web Desktop: {web_gui_url}")
 
     # 5. Update local .env file
     print(f"\n[3/3] Configuring local environment (.env) for RF_BACKEND=aws_saas...")
