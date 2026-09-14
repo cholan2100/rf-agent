@@ -225,15 +225,17 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >      > **ZERO HOST PYTHON & ZERO HOST WSL ENFORCEMENT**:
 >      > When `RF_BACKEND=aws_saas` is active, the host system may have NO Python and NO WSL installed.
 >      > **DO NOT USE PYTHON OR WSL FROM THE HOST SYSTEM**.
->      > 1. **Agent Intelligence**: You (the AI Agent) design the schematic using your own RF engineering intellect (calculate component values L/C/R, standard E24/E96 selections, topology, matching networks, 50Ω CPWG $w=1.87\text{ mm}, s=0.40\text{ mm}$ on 1.6mm FR4, and footprints: `0603` L, `0805` R/C, Samtec SMA edge mount).
+>      > 1. **Agent Intelligence & Multi-User Project Isolation**:
+>      >    - You (the AI Agent) design the schematic using your own RF engineering intellect (calculate component values L/C/R, standard E24/E96 selections, topology, matching networks, 50Ω CPWG $w=1.87\text{ mm}, s=0.40\text{ mm}$ on 1.6mm FR4, and footprints: `0603` L, `0805` R/C, Samtec SMA edge mount).
+>      >    - **Mandatory Collision-Free Project ID**: To ensure multi-user isolation on the shared AWS SaaS microservice, every new circuit design MUST be assigned a unique project identifier with a 6-character random hex suffix: `<circuit_slug>_<random6>` (e.g. `lpf_1ghz_butterworth3_7f2b1a`). For all subsequent stages (`pcb`, `render`, `em`, `gerbers`), reference this exact project ID to preserve continuity without colliding with other users' boards.
 >      > 2. **Pass to SaaS for Tools Usage**: Dispatch the design directly to the cloud SaaS microservice using the pure native Windows launcher (`rf-suite\bin\rf-client.bat`) or native PowerShell REST call:
 >      >    ```cmd
 >      >    # Pure native Windows batch (Zero Python & Zero WSL required on host):
->      >    rf-suite\bin\rf-client.bat -ProjectName "<name>" -Desc "<circuit description>" -Stages schematic
+>      >    rf-suite\bin\rf-client.bat -ProjectName "<unique_name>" -Desc "<circuit description>" -Stages schematic
 >      >    # Or if passing a synthesized spec file:
->      >    rf-suite\bin\rf-client.bat -ProjectName "<name>" -SpecFile "projects\<name>\spec.json" -Stages schematic
+>      >    rf-suite\bin\rf-client.bat -ProjectName "<unique_name>" -SpecFile "projects\<unique_name>\spec.json" -Stages schematic
 >      >    ```
->      >    The SaaS container in the cloud executes the heavy EDA tools (KiCad 10, FreeCAD, openEMS, Qucsator-RF), generates the `.kicad_sch`, renders the high-DPI zoomed vector crop, routes the PCB, and syncs all artifacts back to `projects/<name>/` over HTTP.
+>      >    The SaaS container in the cloud executes the heavy EDA tools (KiCad 10, FreeCAD, openEMS, Qucsator-RF), generates the `.kicad_sch`, renders the high-DPI zoomed vector crop, routes the PCB, and syncs all artifacts back to `projects/<unique_name>/` over HTTP.
 >    - **For Direct Local Commands (`RF_BACKEND=local`)**:
 >      ```bash
 >      # Windows:

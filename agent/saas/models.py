@@ -56,6 +56,10 @@ class StageRunRequest(BaseModel):
         None,
         description="Optional natural language prompt to synthesize spec if project does not exist yet."
     )
+    auto_unique: bool = Field(
+        False,
+        description="If True or if project_name is 'auto'/'new', generates a random 6-character hex suffix for multi-user collision-free isolation."
+    )
 
 
 class StageRunResponse(BaseModel):

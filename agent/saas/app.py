@@ -163,7 +163,23 @@ def run_project_stages(project_name: str, req: StageRunRequest):
     """
     Executes one or more modular engineering stages for a circuit project.
     Stages: schematic, pcb, render, cad, em, qucs, charts, gerbers, report.
+    Supports auto-unique naming for collision-free multi-user isolation.
     """
+    import uuid
+
+    # Multi-user isolation: auto-generate unique random code if requested or name is auto/new
+    if project_name.lower() in ("auto", "new") or req.auto_unique:
+        rand_code = uuid.uuid4().hex[:6]
+        base_name = "rf_circuit"
+        if req.spec and req.spec.get("name") and req.spec.get("name").lower() not in ("auto", "new"):
+            base_name = req.spec["name"]
+        elif req.desc:
+            clean_desc = "".join(c if c.isalnum() or c == '_' else '_' for c in req.desc[:25]).strip('_').lower()
+            base_name = clean_desc if clean_desc else "rf_circuit"
+        elif project_name.lower() not in ("auto", "new"):
+            base_name = project_name
+        project_name = f"{base_name}_{rand_code}"
+
     os.makedirs(PROJECTS_ROOT, exist_ok=True)
     project_dir = os.path.join(PROJECTS_ROOT, project_name)
     spec_path = os.path.join(project_dir, "spec.json")
@@ -177,6 +193,7 @@ def run_project_stages(project_name: str, req: StageRunRequest):
     elif os.path.exists(spec_path):
         with open(spec_path, "r", encoding="utf-8") as f:
             spec = CircuitSpec.from_dict(json.load(f))
+        spec.name = project_name
     # 3. Prompt description provided
     elif req.desc:
         spec = parse_custom_circuit(description=req.desc, title=req.desc)
