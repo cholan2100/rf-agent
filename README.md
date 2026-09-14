@@ -36,9 +36,11 @@ Choose your preferred AI Agent Harness:
   ```text
   Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
   ```
-- **Claude Code CLI One-Liner**:
+- **Terminal / CLI**:
   ```bash
-  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && claude "Initialize the agent as per governing files in this repository."
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git
+  cd rf-agent
+  claude "Initialize the agent as per governing files in this repository."
   ```
 
 ### 2. Codex (OpenAI Codex / ChatGPT)
@@ -46,9 +48,11 @@ Choose your preferred AI Agent Harness:
   ```text
   Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
   ```
-- **Codex CLI / Terminal One-Liner**:
+- **Terminal / CLI**:
   ```bash
-  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && codex "Initialize the agent as per governing files in this repository."
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git
+  cd rf-agent
+  codex "Initialize the agent as per governing files in this repository."
   ```
 
 ### 3. OpenCode
@@ -56,10 +60,13 @@ Choose your preferred AI Agent Harness:
   ```text
   Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
   ```
-- **OpenCode CLI / Terminal One-Liner**:
+- **Terminal / CLI**:
   ```bash
-  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && opencode "Initialize the agent as per governing files in this repository."
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git
+  cd rf-agent
+  opencode run "Initialize the agent as per governing files in this repository."
   ```
+  *(Or launch `opencode` to start the interactive TUI and paste the prompt in chat)*
 
 ### 4. Antigravity (Desktop & CLI)
 - **Antigravity Desktop (One-Click Prompt)**:
@@ -68,9 +75,11 @@ Choose your preferred AI Agent Harness:
   Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
   ```
   *The agent will autonomously clone the repository, bootstrap the toolchain, and greet you with the available design options.*
-- **Antigravity CLI (`agy` Terminal One-Liner)**:
+- **Antigravity CLI (`agy` Terminal)**:
   ```bash
-  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git && cd rf-agent && agy -i "Initialize the agent as per governing files in this repository."
+  git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git
+  cd rf-agent
+  agy -i "Initialize the agent as per governing files in this repository."
   ```
   *(Or use `agy -p "<prompt>"` for headless print mode)*
 - **Antigravity IDE**:
