@@ -219,7 +219,12 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Backend), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
+> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**:
+> [!CRITICAL]
+> **NETLIST-DRIVEN ARCHITECTURE**:
+> You (the AI Agent) MUST FIRST generate the `spec.json` file in the repository root containing the physical components and electrical net connections (`nets` array) based on the user's circuit request.
+> Once the `spec.json` is saved, pass it to the workflow using `--spec-file spec.json` instead of `--desc`.
+ After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Backend), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
 >    - **For SaaS Backend (Canonical Recommended - AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
 >      > [!CRITICAL]
 >      > **ZERO HOST PYTHON & ZERO HOST WSL ENFORCEMENT**:
@@ -231,7 +236,7 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >      > 2. **Pass to SaaS for Tools Usage**: Dispatch the design directly to the cloud SaaS microservice using the pure native Windows launcher (`rf-suite\bin\rf-client.bat`) or native PowerShell REST call:
 >      >    ```cmd
 >      >    # Pure native Windows batch (Zero Python & Zero WSL required on host):
->      >    rf-suite\bin\rf-client.bat -ProjectName "<unique_name>" -Desc "<circuit description>" -Stages schematic
+>      >    rf-suite\bin\rf-client.bat -ProjectName "<unique_name>" -SpecFile spec.json -Stages schematic
 >      >    # Or if passing a synthesized spec file:
 >      >    rf-suite\bin\rf-client.bat -ProjectName "<unique_name>" -SpecFile "projects\<unique_name>\spec.json" -Stages schematic
 >      >    ```
@@ -239,10 +244,10 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >    - **For Direct Local Commands (`RF_BACKEND=local`)**:
 >      ```bash
 >      # Windows:
->      rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+>      rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file spec.json --stages schematic
 >
 >      # Linux / WSL:
->      ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
+>      ./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file spec.json --stages schematic
 >      ```
 >    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
 >    **MANDATORY IMMEDIATE RENDER DISPLAY**: As soon as Task 1 finishes, copy `schematic_zoomed.png` to `<appDataDir>\brain\<conversation-id>\` and IMMEDIATELY display the synthesized schematic render in chat text with `![Schematic](<absolute_path>)` and component specs. NEVER prompt to proceed or move to PCB layout without showing the schematic image!
@@ -361,7 +366,7 @@ Execute stages individually to allow human review at each step:
 #### Windows
 ```cmd
 :: Task 1: Schematic Synthesis & Zoomed Crop
-rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file spec.json --stages schematic
 
 :: Task 2: Controlled Impedance PCB Layout & DRC
 rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
@@ -391,7 +396,7 @@ rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file projects/<name>/spe
 #### Linux / WSL
 ```bash
 # Task 1: Schematic Synthesis & Zoomed Crop
-./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
+./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file spec.json --stages schematic
 
 # Task 2: Controlled Impedance PCB Layout & DRC
 ./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file projects/<name>/spec.json --stages pcb
@@ -423,7 +428,7 @@ When `RF_BACKEND=saas` is active, commands communicate over HTTP REST with the h
 
 ```bash
 # Task 1: Schematic Synthesis & Zoomed Crop via SaaS
-python -m agent.workflow --desc "<circuit description>" --backend saas --stages schematic
+python -m agent.workflow --spec-file spec.json --backend saas --stages schematic
 
 # Task 2: Controlled Impedance PCB Layout & DRC via SaaS
 python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages pcb
@@ -450,7 +455,7 @@ python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --
 python -m agent.workflow --spec-file projects/<name>/spec.json --backend saas --stages report
 
 # Execute All 9 Stages End-to-End via SaaS:
-python -m agent.workflow --desc "<circuit description>" --backend saas
+python -m agent.workflow --spec-file spec.json --backend saas
 ```
 *(Note: If executing on Windows where Python is inside WSL Debian, prefix with `wsl -d Debian bash -c "cd <wsl-path-to-repo> && python3 -m agent.workflow ..."`)*
 
