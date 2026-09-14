@@ -250,7 +250,9 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >      ./rf-suite/bin/rf-run python3 -m agent.workflow --spec-file spec.json --stages schematic
 >      ```
 >    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
->    **MANDATORY IMMEDIATE RENDER DISPLAY**: As soon as Task 1 finishes, copy `schematic_zoomed.png` to `<appDataDir>\brain\<conversation-id>\` and IMMEDIATELY display the synthesized schematic render in chat text with `![Schematic](<absolute_path>)` and component specs. NEVER prompt to proceed or move to PCB layout without showing the schematic image!
+>    **MANDATORY IMMEDIATE RENDER DISPLAY & DISCLAIMER**: As soon as Task 1 finishes, copy `schematic_zoomed.png` to `<appDataDir>\brain\<conversation-id>\` and IMMEDIATELY display the synthesized schematic render in chat text with `![Schematic](<absolute_path>)` and component specs. 
+>    **YOU MUST EXPLICITLY COMMUNICATE THE FOLLOWING TO THE USER IN CHAT**: *"Note: This schematic was synthesized purely by the LLM model chosen in the Agentic Harness. The quality, accuracy, and performance of the RF circuit are directly dependent on the reasoning capabilities of the active AI model."* 
+>    NEVER prompt to proceed or move to PCB layout without showing the schematic image and providing this disclaimer!
 >    If no circuit description was given yet (e.g., initial repository checkout or environment setup), deliver the Invitation Greeting (§1.2 Gate 3) and await the user's circuit prompt.
 
 ---
