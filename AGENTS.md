@@ -219,12 +219,16 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 > 1. **DO NOT BROWSE OR ANALYZE CODEBASE FILES**: Do NOT run `find_by_name`, `grep_search`, `list_dir`, or `view_file` on `agent/*.py` or other repository source files.
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
-> 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**:
+> 4. **MANDATORY NETLIST GENERATION & USER APPROVAL ON TURN 1**:
 > [!CRITICAL]
-> **NETLIST-DRIVEN ARCHITECTURE**:
+> **NETLIST-DRIVEN ARCHITECTURE & APPROVAL GATE**:
 > You (the AI Agent) MUST FIRST generate the `spec.json` file in the repository root containing the physical components and electrical net connections (`nets` array) based on the user's circuit request.
-> Once the `spec.json` is saved, pass it to the workflow using `--spec-file spec.json` instead of `--desc`.
- After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Backend), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
+> 
+> **MANDATORY APPROVAL STOP**: As soon as you save `spec.json`, you MUST display the synthesized netlist components and connections to the user in chat. You MUST explicitly communicate: *"Note: This netlist was synthesized purely by the LLM model chosen in the Agentic Harness. The quality of the circuit depends on the model used."*
+> You MUST STOP and ask for the user's approval. **DO NOT** launch the backend tools yet.
+> 
+> 5. **EXECUTE SCHEMATIC DRAWING ON TURN 2 (UPON APPROVAL)**:
+> Only AFTER the user approves the netlist, pass it to the workflow using `--spec-file spec.json`. Launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
 >    - **For SaaS Backend (Canonical Recommended - AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
 >      > [!CRITICAL]
 >      > **ZERO HOST PYTHON & ZERO HOST WSL ENFORCEMENT**:
