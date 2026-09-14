@@ -69,6 +69,9 @@ JSON Schema:
       "package": "<KiCad footprint path>",
       "role": "<Role of this component in the RF/DC network>"
     }
+  },
+  "nets": {
+    "<NET_NAME>": ["<REF.PIN_NUM>", "<REF.PIN_NUM>"]
   }
 }
 """

@@ -60,6 +60,9 @@ class CircuitSpec:
     # Components & Values
     components: Dict[str, Any] = field(default_factory=dict)
     
+    # Netlist (Net name -> list of component pins e.g., 'J1.1', 'C1.1')
+    nets: Dict[str, List[str]] = field(default_factory=dict)
+    
     # Additional features
     additional_reqs: List[str] = field(default_factory=lambda: [
         "50-ohm Controlled Impedance RF Lines",
@@ -916,249 +919,15 @@ def parse_custom_circuit(
 
         if "R_SERIES" in overrides:
             r2_nom = overrides["R_SERIES"]["nominal"]
-            r2_val = overrides["R_SERIES"]["value"]
-        else:
-            r2_nom = overrides.get("R2", {}).get("nominal", round(calc_r_series, 1))
-            r2_val = overrides.get("R2", {}).get("value", f"{round(calc_r_series, 1)}R")
 
-        f_max = max(3.0, round(f_att * 2.0, 2))
-        return CircuitSpec(
-            name=f"attenuator_{int(att_db)}db",
-            title=f"{att_db:.1f} dB RF Pi-Attenuator ({z0:.0f}Ω, DC-{f_max:.0f}GHz)",
-            topology="attenuator",
-            description=f"Precision {att_db:.1f} dB {z0:.0f}-ohm Pi-Attenuator (R1={r1_val}, R2={r2_val}, R3={r3_val}) on {substrate_name}.",
-            f_min_ghz=0.01,
-            f_0_ghz=f_att,
-            f_max_ghz=f_max,
-            z0_ohm=z0,
-            target_s21_db=-round(att_db, 1),
-            target_s11_db=-25.0,
-            target_s22_db=-25.0,
-            width_mm=width_mm,
-            height_mm=height_mm,
-            substrate_name=substrate_name,
-            dielectric_er=er,
-            substrate_height_mm=h_mm,
-            em_sim_type=em_sim_type,
-            components={
-                "R1": {"type": "resistor", "value": r1_val, "nominal_ohm": r1_nom, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Input"},
-                "R2": {"type": "resistor", "value": r2_val, "nominal_ohm": r2_nom, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Series Resistor"},
-                "R3": {"type": "resistor", "value": r3_val, "nominal_ohm": r3_nom, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Shunt Output"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": f"RF Port 1 ({z0:.0f}Ω SMA)"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": f"RF Port 2 ({z0:.0f}Ω SMA)"},
-            }
-        )
-
-    # 4. High-Pass Filter Detection
-    if ("high" in desc_lower and "pass" in desc_lower) or "hpf" in desc_lower:
-        fc = extract_rf_frequency(desc_lower, default_f0=f0_ghz) or 1.5
-        c_f_calc = 1.0 / (2.0 * math.pi * fc * 1e9 * z0)
-        l_h_calc = z0 / (4.0 * math.pi * fc * 1e9)
-        
-        c1_nom = overrides.get("C1", {}).get("nominal", c_f_calc)
-        c1_val = overrides.get("C1", {}).get("value", f"{round(c1_nom * 1e12, 1)}pF")
-        l1_nom = overrides.get("L1", {}).get("nominal", (overrides.get("L", {}).get("nominal", l_h_calc)))
-        l1_val = overrides.get("L1", {}).get("value", (overrides.get("L", {}).get("value", f"{round(l1_nom * 1e9, 1)}nH")))
-        c2_nom = overrides.get("C2", {}).get("nominal", c_f_calc)
-        c2_val = overrides.get("C2", {}).get("value", f"{round(c2_nom * 1e12, 1)}pF")
-        
-        ind_info = select_inductor_package_and_vendor(l1_nom)
-        fc_mhz_str = f"{fc * 1000.0:.0f}MHz" if fc < 1.0 else f"{fc:.2f}GHz"
-
-        return CircuitSpec(
-            name=f"highpass_filter_{fc_mhz_str.lower().replace('.', '_')}",
-            title=f"{fc_mhz_str} RF High-Pass Filter (3-Pole, {z0:.0f}Ω)",
-            topology="highpass",
-            description=f"3-Pole Butterworth High-Pass Filter with {fc_mhz_str} cutoff (C1={c1_val}, L1={l1_val}, C2={c2_val}).",
-            f_min_ghz=round(max(0.01, fc * 0.2), 3),
-            f_0_ghz=fc,
-            f_max_ghz=round(fc * 3.0, 3),
-            z0_ohm=z0,
-            target_s21_db=-0.8,
-            target_s11_db=-20.0,
-            width_mm=max(width_mm, 35.0),
-            height_mm=height_mm,
-            substrate_name=substrate_name,
-            dielectric_er=er,
-            substrate_height_mm=h_mm,
-            em_sim_type=em_sim_type,
-            components={
-                "C1": {"type": "capacitor", "value": c1_val, "nominal_val": c1_nom, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Series Input High-Pass Capacitor"},
-                "L1": {"type": "inductor", "value": l1_val, "nominal_val": l1_nom, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Shunt Inductor to Ground"},
-                "C2": {"type": "capacitor", "value": c2_val, "nominal_val": c2_nom, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Series Output High-Pass Capacitor"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Input"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Output"},
-            }
-        )
-
-    # 5. Low-Pass Filter Detection
-    if "low" in desc_lower or "lpf" in desc_lower:
-        fc = extract_rf_frequency(desc_lower, default_f0=f0_ghz) or 1.5
-        c_calc = (1.0 / (2.0 * math.pi * fc * 1e9 * z0))
-        l_calc = (2.0 * z0 / (2.0 * math.pi * fc * 1e9))
-        
-        c1_nom = overrides.get("C1", {}).get("nominal", c_calc)
-        c1_val = overrides.get("C1", {}).get("value", f"{round(c1_nom * 1e12, 1)}pF")
-        l1_nom = overrides.get("L1", {}).get("nominal", (overrides.get("L", {}).get("nominal", l_calc)))
-        l1_val = overrides.get("L1", {}).get("value", (overrides.get("L", {}).get("value", f"{round(l1_nom * 1e9, 1)}nH")))
-        c2_nom = overrides.get("C2", {}).get("nominal", c_calc)
-        c2_val = overrides.get("C2", {}).get("value", f"{round(c2_nom * 1e12, 1)}pF")
-        
-        ind_info = select_inductor_package_and_vendor(l1_nom)
-        fc_str = f"{int(round(fc * 1000))}mhz" if fc < 1.0 else f"{fc:.2f}ghz".replace('.', '_')
-        fc_display = f"{fc * 1000:.0f} MHz" if fc < 1.0 else f"{fc:.2f} GHz"
-
-        return CircuitSpec(
-            name=f"lowpass_filter_{fc_str}",
-            title=f"{fc_display} RF Low-Pass Filter (3-Pole, {z0:.0f}Ω)",
-            topology="lowpass",
-            description=f"3-Pole Butterworth Low-Pass Filter with {fc_display} cutoff (C1={c1_val}, L1={l1_val}, C2={c2_val}).",
-            f_min_ghz=round(fc * 0.1, 2),
-            f_0_ghz=fc,
-            f_max_ghz=round(fc * 2.5, 2),
-            z0_ohm=z0,
-            target_s21_db=-0.8,
-            target_s11_db=-20.0,
-            width_mm=max(width_mm, 35.0),
-            height_mm=height_mm,
-            substrate_name=substrate_name,
-            dielectric_er=er,
-            substrate_height_mm=h_mm,
-            em_sim_type=em_sim_type,
-            components={
-                "C1": {"type": "capacitor", "value": c1_val, "nominal_val": c1_nom, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Shunt Input Capacitor"},
-                "L1": {"type": "inductor", "value": l1_val, "nominal_val": l1_nom, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "Series Inductor"},
-                "C2": {"type": "capacitor", "value": c2_val, "nominal_val": c2_nom, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "Shunt Output Capacitor"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Input"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Output"},
-            }
-        )
-
-    # 6. Bandpass Filter / LC Tank Detection
-    if "bandpass" in desc_lower or "bpf" in desc_lower or "tank" in desc_lower or ("pass" in desc_lower and "high" not in desc_lower and "low" not in desc_lower):
-        f0 = extract_rf_frequency(desc_lower, default_f0=f0_ghz) or 1.5
-        omega0 = 2.0 * math.pi * f0 * 1e9
-        
-        has_user_l = "L1" in overrides or "L" in overrides
-        has_user_c = "C1" in overrides or "C" in overrides
-        
-        if has_user_l and has_user_c:
-            l_h = overrides.get("L1", {}).get("nominal", overrides.get("L", {}).get("nominal"))
-            c_f = overrides.get("C1", {}).get("nominal", overrides.get("C", {}).get("nominal"))
-            calc_f0 = 1.0 / (2.0 * math.pi * math.sqrt(l_h * c_f) * 1e9)
-            f0 = round(calc_f0, 4)
-        elif has_user_l:
-            l_h = overrides.get("L1", {}).get("nominal", overrides.get("L", {}).get("nominal"))
-            c_f = 1.0 / (omega0**2 * l_h)
-        elif has_user_c:
-            c_f = overrides.get("C1", {}).get("nominal", overrides.get("C", {}).get("nominal"))
-            l_h = 1.0 / (omega0**2 * c_f)
-        else:
-            # Realistic L and C matching ~50 ohm reactance at f0
-            l_h = z0 / omega0
-            c_f = 1.0 / (omega0 * z0)
-            
-        l_nh = round(l_h * 1e9, 1)
-        c_pf = round(c_f * 1e12, 1)
-        l_val_str = overrides.get("L1", {}).get("value", overrides.get("L", {}).get("value", f"{l_nh}nH"))
-        c_val_str = overrides.get("C1", {}).get("value", overrides.get("C", {}).get("value", f"{c_pf}pF"))
-        
-        ind_info = select_inductor_package_and_vendor(l_h)
-        f0_mhz_str = f"{f0 * 1000.0:.0f}MHz" if f0 < 1.0 else f"{f0:.2f}GHz"
-        is_shunt = "shunt" in desc_lower or "parallel" in desc_lower
-
-        top_name = "bandpass_shunt" if is_shunt else "bandpass"
-        desc_type = "Shunted parallel" if is_shunt else "Series"
-        
-        return CircuitSpec(
-            name=f"bpf_{f0_mhz_str.lower().replace('.', '_')}_lc",
-            title=f"{f0_mhz_str} {desc_type} LC Tank Bandpass Filter ({z0:.0f}Ω)",
-            topology=top_name,
-            description=f"{desc_type} LC tank bandpass filter centered at {f0_mhz_str} (L={l_val_str}, C={c_val_str}) with 50-ohm CPWG I/O.",
-            f_min_ghz=round(max(0.01, f0 * 0.1), 3),
-            f_0_ghz=f0,
-            f_max_ghz=round(f0 * 2.0, 3),
-            z0_ohm=z0,
-            target_s21_db=-0.5,
-            target_s11_db=-20.0,
-            width_mm=max(width_mm, 35.0),
-            height_mm=height_mm,
-            substrate_name=substrate_name,
-            dielectric_er=er,
-            substrate_height_mm=h_mm,
-            em_sim_type=em_sim_type,
-            components={
-                "C1": {"type": "capacitor", "value": c_val_str, "nominal_val": c_f, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / Johanson", "series": "GRM / High-Q C0G", "role": f"{desc_type} Tank Capacitor"},
-                "L1": {"type": "inductor", "value": l_val_str, "nominal_val": l_h, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": f"{desc_type} Tank Inductor"},
-                "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Input"},
-                "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Output"},
-            }
-        )
-
-    # 7. Bias Tee Detection
-    if "bias" in desc_lower or "tee" in desc_lower:
-        f_bt = extract_rf_frequency(desc_lower, default_f0=f0_ghz) or f0_ghz
-        c1_nom = overrides.get("C1", {}).get("nominal", 100e-12)
-        c1_val = overrides.get("C1", {}).get("value", f"{round(c1_nom * 1e12, 1)}pF")
-        l1_nom = overrides.get("L1", {}).get("nominal", 100e-9)
-        l1_val = overrides.get("L1", {}).get("value", f"{round(l1_nom * 1e9, 1)}nH")
-        ind_info = select_inductor_package_and_vendor(l1_nom)
-        return CircuitSpec(
-            name="bias_tee",
-            title=f"Wideband RF Bias Tee ({f_bt:.1f} GHz, {z0:.0f}Ω)",
-            topology="bias_tee",
-            description=f"RF Bias Tee for DC power injection with {l1_val} RF choke inductor and {c1_val} DC blocking capacitor.",
-            f_min_ghz=0.1,
-            f_0_ghz=f_bt,
-            f_max_ghz=round(f_bt * 2.0, 2),
-            z0_ohm=z0,
-            target_s21_db=-0.5,
-            target_s11_db=-22.0,
-            power_supply_type="DC Single Supply",
-            power_voltage_v=5.0,
-            width_mm=max(width_mm, 35.0),
-            height_mm=height_mm,
-            substrate_name=substrate_name,
-            dielectric_er=er,
-            substrate_height_mm=h_mm,
-            em_sim_type=em_sim_type,
-            components={
-                "C1": {"type": "capacitor", "value": c1_val, "nominal_val": c1_nom, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": "DC Blocking Capacitor"},
-                "L1": {"type": "inductor", "value": l1_val, "nominal_val": l1_nom, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": "RF Choke Inductor"},
-                "J1": {"type": "connector", "value": "RF_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port (Pure RF)"},
-                "J2": {"type": "connector", "value": "RF_DC_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF+DC Output"},
-                "J3": {"type": "connector", "value": "DC_SUPPLY", "package": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", "vendor": "Molex / Standard", "series": "2.54mm Header", "role": "+5V DC Power Input"},
-            }
-        )
-
-    # 8. Fallback / Custom RF Circuit
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', title.lower()).strip('_')
+    if not safe_name: safe_name = "custom_rf_board"
     f_custom = extract_rf_frequency(desc_lower, default_f0=f0_ghz) or f0_ghz
     
-    comps = {
-        "J1": {"type": "connector", "value": "SMA_IN", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port 1"},
-        "J2": {"type": "connector", "value": "SMA_OUT", "package": "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount", "vendor": "Samtec", "series": "SMA-J-P-H-ST-EM1", "role": "RF Port 2"},
-    }
-    
-    if overrides:
-        for ref, o in overrides.items():
-            if ref in ["R", "C", "L", "R_SHUNT", "R_SERIES"]:
-                continue
-            ctype = o["type"]
-            val_str = o["value"]
-            nom = o["nominal"]
-            if ctype == "resistor":
-                comps[ref] = {"type": "resistor", "value": val_str, "nominal_ohm": nom, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": f"{ref} Resistor"}
-            elif ctype == "capacitor":
-                comps[ref] = {"type": "capacitor", "value": val_str, "nominal_val": nom, "package": "Capacitor_SMD:C_0805_2012Metric", "vendor": "Murata / TDK", "series": "GRM / C Series C0G", "role": f"{ref} Capacitor"}
-            elif ctype == "inductor":
-                ind_info = select_inductor_package_and_vendor(nom)
-                comps[ref] = {"type": "inductor", "value": val_str, "nominal_val": nom, "package": ind_info["package"], "vendor": ind_info["vendor"], "series": ind_info["series"], "role": f"{ref} Inductor"}
-    else:
-        comps["R1"] = {"type": "resistor", "value": f"{z0:.0f}R", "nominal_ohm": z0, "package": "Resistor_SMD:R_0805_2012Metric", "vendor": "Susumu / Vishay", "series": "RR0816 / PAT", "role": "Terminating Resistor"}
-
+    # We no longer use hardcoded templates or presets.
+    # The circuit components and nets MUST be defined by the model (e.g. via spec.json)
     return CircuitSpec(
-        name=safe_name or "custom_rf_board",
+        name=safe_name,
         title=title,
         topology="custom",
         description=description,
@@ -1174,8 +943,6 @@ def parse_custom_circuit(
         dielectric_er=er,
         substrate_height_mm=h_mm,
         em_sim_type=em_sim_type,
-        components=comps
+        components={},
+        nets={}
     )
-
-
-

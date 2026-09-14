@@ -1,7 +1,6 @@
 """
 Task 1: Programmatic KiCad 10 Schematic Generator & Zoomed Render.
-Synthesizes valid KiCad 10 S-expression schematics with complete symbol bodies,
-and exports tightly cropped, high-resolution zoomed schematic images.
+Synthesizes valid KiCad 10 S-expression schematics dynamically from netlists.
 """
 
 import os
@@ -14,95 +13,6 @@ try:
 except ImportError:
     cairosvg = None
 from .spec import CircuitSpec
-
-def generate_schematic(spec: CircuitSpec, output_dir: str, progress_callback=None) -> tuple[str, str]:
-    """
-    Generate KiCad 10 schematic (.kicad_sch) and high-DPI zoomed render image (.png).
-    Returns (sch_path, zoomed_png_path).
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    renders_dir = os.path.join(output_dir, "renders")
-    os.makedirs(renders_dir, exist_ok=True)
-
-    sch_path = os.path.join(output_dir, f"{spec.name}.kicad_sch")
-    zoomed_png_path = os.path.join(renders_dir, "schematic_zoomed.png")
-    
-    gen_date = datetime.date.today().isoformat()
-    sch_uuid = str(uuid.uuid4())
-
-    if progress_callback:
-        progress_callback("Synthesizing schematic S-expression netlist and symbols...")
-
-    # Generate schematic text depending on topology
-    desc_str = (spec.description + " " + spec.name + " " + spec.title).lower()
-    if spec.topology in ["attenuator", "pad"] or "attenuat" in desc_str:
-        content = _generate_attenuator_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["lowpass", "lpf"] or "low pass" in desc_str or "lowpass" in desc_str or "lpf" in desc_str:
-        content = _generate_lowpass_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["highpass", "hpf"] or "high pass" in desc_str or "highpass" in desc_str or "hpf" in desc_str:
-        content = _generate_highpass_sch(spec, sch_uuid, gen_date)
-    elif spec.topology == "bandpass_shunt" or ((spec.topology in ["bandpass", "bpf"] or "band pass" in desc_str or "bandpass" in desc_str) and "shunt" in desc_str):
-        content = _generate_bandpass_shunt_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["bandpass", "bpf"] or "band pass" in desc_str or "bandpass" in desc_str or "bpf" in desc_str:
-        content = _generate_bandpass_lc_sch(spec, sch_uuid, gen_date)
-    elif spec.topology == "bias_tee" or "bias tee" in desc_str or "bias-tee" in desc_str:
-        content = _generate_bias_tee_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["lna", "amplifier"] or "lna" in desc_str or "amplifier" in desc_str:
-        if "Q1" in spec.components:
-            content = _generate_bjt_lna_sch(spec, sch_uuid, gen_date)
-        else:
-            content = _generate_lna_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["calibration_load", "load", "termination"] or "load" in desc_str or "termination" in desc_str:
-        content = _generate_calibration_load_sch(spec, sch_uuid, gen_date)
-    elif spec.topology in ["through", "transmission_line"] or "through" in desc_str:
-        content = _generate_through_line_sch(spec, sch_uuid, gen_date)
-    else:
-        content = _generate_generic_rf_sch(spec, sch_uuid, gen_date)
-        
-    with open(sch_path, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    # Export Zoomed Schematic Render
-    if progress_callback:
-        progress_callback("Exporting vector schematic and rendering zoomed high-DPI image...")
-
-    try:
-        cmd_svg = [
-            "kicad-cli", "sch", "export", "svg",
-            "--exclude-drawing-sheet",
-            "--no-background-color",
-            "--output", renders_dir,
-            sch_path
-        ]
-        subprocess.run(cmd_svg, capture_output=True, text=True, check=True)
-
-        generated_svg = os.path.join(renders_dir, f"{spec.name}.svg")
-        if os.path.exists(generated_svg) and cairosvg is not None:
-            # Rasterize via cairosvg at 300 DPI equivalent (scale 3.0)
-            cairosvg.svg2png(url=generated_svg, write_to=zoomed_png_path, scale=3.0)
-
-            # Crop tightly to circuit content
-            img = Image.open(zoomed_png_path)
-            alpha = img.split()[-1]
-            bbox = alpha.getbbox()
-
-            if bbox:
-                pad = 60
-                x1 = max(0, bbox[0] - pad)
-                y1 = max(0, bbox[1] - pad)
-                x2 = min(img.width, bbox[2] + pad)
-                y2 = min(img.height, bbox[3] + pad)
-                cropped = img.crop((x1, y1, x2, y2))
-
-                # Composite onto clean white background
-                final_img = Image.new("RGBA", cropped.size, (255, 255, 255, 255))
-                final_img.paste(cropped, (0, 0), cropped)
-                final_img.convert("RGB").save(zoomed_png_path, "PNG", quality=95)
-    except Exception as e:
-        pass
-
-    return sch_path, zoomed_png_path
-
 
 def _get_common_lib_symbols() -> str:
     """Standard graphical symbol definitions for R, C, L, SMA connector, and GND."""
@@ -155,914 +65,148 @@ def _get_common_lib_symbols() -> str:
 			(pin input line (at -5.08 0 0) (length 2.54) (name "B" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
 			(pin passive line (at 2.54 -5.08 90) (length 2.54) (name "E" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
 			(pin passive line (at 2.54 5.08 270) (length 2.54) (name "C" (effects (font (size 1.27 1.27)))) (number "3" (effects (font (size 1.27 1.27)))))
-			(polyline (pts (xy -2.54 2.54) (xy -2.54 -2.54)) (stroke (width 0.5) (type default)))
-			(polyline (pts (xy -2.54 1.27) (xy 2.54 2.54)) (stroke (width 0.254) (type default)))
-			(polyline (pts (xy -2.54 -1.27) (xy 2.54 -2.54)) (stroke (width 0.254) (type default)))
-			(polyline (pts (xy 1.0 -2.3) (xy 2.54 -2.54) (xy 1.8 -1.5)) (stroke (width 0.254) (type default)) (fill (type outline)))
 		)
 """
 
-def _generate_attenuator_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 S-expression schematic for a Pi-Attenuator."""
-    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_r1, u_r2, u_r3 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_gnd1, u_gnd2 = str(uuid.uuid4()), str(uuid.uuid4())
+def _generate_netlist_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
+    """Generates a KiCad schematic dynamically from the spec.components and spec.nets."""
+    
+    out = [
+        "(kicad_sch",
+        "	(version 20231120)",
+        "	(generator \"rf_agent\")",
+        "	(generator_version \"10.0\")",
+        f"	(uuid \"{root_uuid}\")",
+        "	(paper \"A4\")",
+        "	(title_block",
+        f"		(title \"{spec.title}\")",
+        f"		(date \"{gen_date}\")",
+        "		(rev \"1.0\")",
+        "		(company \"RF AI Suite\")",
+        "	)",
+        "	(lib_symbols",
+        _get_common_lib_symbols(),
+        "	)"
+    ]
 
-    r1_val = spec.components.get("R1", {}).get("value", "100R")
-    r2_val = spec.components.get("R2", {}).get("value", "100R")
-    r3_val = spec.components.get("R3", {}).get("value", "100R")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    def get_lib_id(ctype: str) -> str:
+        t = ctype.lower()
+        if "resistor" in t: return "Device:R"
+        if "capacitor" in t: return "Device:C"
+        if "inductor" in t: return "Device:L"
+        if "connector" in t: return "Connector:Conn_Coaxial"
+        if "transistor" in t: return "Device:Q_NPN_BEC"
+        if "ic" in t: return "Device:Amplifier_MMIC"
+        return "Device:R"
 
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Target S21 = {spec.target_s21_db:+.1f} dB")
-		(comment 2 "Substrate: {spec.substrate_name} (er={spec.dielectric_er}, h={spec.substrate_height_mm}mm, w_50={spec.rf_trace_width_mm:.2f}mm)")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol
-		(lib_id "Connector:Conn_Coaxial")
-		(at 38.1 76.2 0)
-		(uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 63.5 101.6 0)
-		(uuid "{u_r1}")
-		(property "Reference" "R1" (at 68.58 101.6 0))
-		(property "Value" "{r1_val}" (at 68.58 104.14 0))
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric" (at 63.5 101.6 0) (effects (hide yes)))
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 88.9 76.2 90)
-		(uuid "{u_r2}")
-		(property "Reference" "R2" (at 88.9 68.58 0))
-		(property "Value" "{r2_val}" (at 88.9 71.12 0))
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric" (at 88.9 76.2 0) (effects (hide yes)))
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 114.3 101.6 0)
-		(uuid "{u_r3}")
-		(property "Reference" "R3" (at 119.38 101.6 0))
-		(property "Value" "{r3_val}" (at 119.38 104.14 0))
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric" (at 114.3 101.6 0) (effects (hide yes)))
-	)
-	(symbol
-		(lib_id "Connector:Conn_Coaxial")
-		(at 139.7 76.2 0)
-		(uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 63.5 114.3 0)
-		(uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at 63.5 118.11 0) (effects (hide yes)))
-		(property "Value" "GND" (at 63.5 119.38 0))
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 114.3 114.3 0)
-		(uuid "{u_gnd2}")
-		(property "Reference" "#PWR02" (at 114.3 118.11 0) (effects (hide yes)))
-		(property "Value" "GND" (at 114.3 119.38 0))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 63.5 76.2)))
-	(wire (pts (xy 63.5 76.2) (xy 63.5 97.79)))
-	(wire (pts (xy 63.5 76.2) (xy 85.09 76.2)))
-	(wire (pts (xy 92.71 76.2) (xy 114.3 76.2)))
-	(wire (pts (xy 114.3 76.2) (xy 114.3 97.79)))
-	(wire (pts (xy 114.3 76.2) (xy 139.7 76.2)))
-	(wire (pts (xy 63.5 105.41) (xy 63.5 114.3)))
-	(wire (pts (xy 114.3 105.41) (xy 114.3 114.3)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_OUT" (at 132.08 73.66 0))
-	(text "{spec.description}\\nZ0 = {spec.z0_ohm:.1f} Ohm Controlled Impedance (w = {spec.rf_trace_width_mm:.2f}mm)" (at 88.9 127.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
+    x_start = 40.0
+    y_start = 50.0
+    x_spacing = 30.0
+    y_spacing = 30.0
+    
+    comps = list(spec.components.keys())
+    
+    col = 0
+    row = 0
+    pin_locations = {}
+    
+    for ref in comps:
+        c = spec.components[ref]
+        lib_id = get_lib_id(c.get("type", ""))
+        val = c.get("value", "")
+        fp = c.get("package", "")
+        
+        x = x_start + col * x_spacing
+        y = y_start + row * y_spacing
+        
+        u = str(uuid.uuid4())
+        
+        out.append(f'	(symbol (lib_id "{lib_id}") (at {x:.2f} {y:.2f} 0) (uuid "{u}")')
+        out.append(f'		(property "Reference" "{ref}" (at {x:.2f} {y-7.62:.2f} 0))')
+        out.append(f'		(property "Value" "{val}" (at {x:.2f} {y-5.08:.2f} 0))')
+        out.append(f'		(property "Footprint" "{fp}" (at {x:.2f} {y:.2f} 0) (effects (hide yes)))')
+        out.append('	)')
+        
+        if lib_id == "Connector:Conn_Coaxial":
+            pin_locations[f"{ref}.1"] = (x - 5.08, y)
+            pin_locations[f"{ref}.2"] = (x, y - 5.08)
+        elif lib_id in ["Device:R", "Device:C", "Device:L"]:
+            pin_locations[f"{ref}.1"] = (x, y + 3.81)
+            pin_locations[f"{ref}.2"] = (x, y - 3.81)
+        elif lib_id == "Device:Q_NPN_BEC":
+            pin_locations[f"{ref}.1"] = (x - 5.08, y)
+            pin_locations[f"{ref}.2"] = (x + 2.54, y - 5.08)
+            pin_locations[f"{ref}.3"] = (x + 2.54, y + 5.08)
+        else:
+            pin_locations[f"{ref}.1"] = (x - 2.54, y)
+            pin_locations[f"{ref}.2"] = (x + 2.54, y)
+            pin_locations[f"{ref}.3"] = (x, y + 2.54)
+        
+        col += 1
+        if col > 4:
+            col = 0
+            row += 1
 
-def _generate_lowpass_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for a 3-pole Low-Pass Filter."""
-    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_c1, u_l1, u_c2 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_gnd1, u_gnd2 = str(uuid.uuid4()), str(uuid.uuid4())
+    if hasattr(spec, "nets") and spec.nets:
+        for net_name, pins in spec.nets.items():
+            for pin in pins:
+                if pin in pin_locations:
+                    px, py = pin_locations[pin]
+                    sx = px - 2.54
+                    sy = py
+                    out.append(f'	(wire (pts (xy {px:.2f} {py:.2f}) (xy {sx:.2f} {sy:.2f})))')
+                    out.append(f'	(label "{net_name}" (at {sx:.2f} {sy:.2f} 0))')
 
-    c1_val = spec.components.get("C1", {}).get("value", "2.1pF")
-    l1_val = spec.components.get("L1", {}).get("value", "10.6nH")
-    c2_val = spec.components.get("C2", {}).get("value", "2.1pF")
-    c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    c2_fp = spec.components.get("C2", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    out.append(")")
+    return "\n".join(out)
 
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Cutoff fc = {spec.f_0_ghz:.2f} GHz")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 63.5 101.6 0) (uuid "{u_c1}")
-		(property "Reference" "C1" (at 68.58 101.6 0))
-		(property "Value" "{c1_val}" (at 68.58 104.14 0))
-		(property "Footprint" "{c1_fp}" (at 63.5 101.6 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:L") (at 88.9 76.2 90) (uuid "{u_l1}")
-		(property "Reference" "L1" (at 88.9 68.58 0))
-		(property "Value" "{l1_val}" (at 88.9 71.12 0))
-		(property "Footprint" "{l1_fp}" (at 88.9 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 114.3 101.6 0) (uuid "{u_c2}")
-		(property "Reference" "C2" (at 119.38 101.6 0))
-		(property "Value" "{c2_val}" (at 119.38 104.14 0))
-		(property "Footprint" "{c2_fp}" (at 114.3 101.6 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 63.5 114.3 0) (uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at 63.5 118.11 0) (effects (hide yes)))
-		(property "Value" "GND" (at 63.5 119.38 0))
-	)
-	(symbol (lib_id "power:GND") (at 114.3 114.3 0) (uuid "{u_gnd2}")
-		(property "Reference" "#PWR02" (at 114.3 118.11 0) (effects (hide yes)))
-		(property "Value" "GND" (at 114.3 119.38 0))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 63.5 76.2)))
-	(wire (pts (xy 63.5 76.2) (xy 63.5 97.79)))
-	(wire (pts (xy 63.5 76.2) (xy 85.09 76.2)))
-	(wire (pts (xy 92.71 76.2) (xy 114.3 76.2)))
-	(wire (pts (xy 114.3 76.2) (xy 114.3 97.79)))
-	(wire (pts (xy 114.3 76.2) (xy 139.7 76.2)))
-	(wire (pts (xy 63.5 105.41) (xy 63.5 114.3)))
-	(wire (pts (xy 114.3 105.41) (xy 114.3 114.3)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_OUT" (at 132.08 73.66 0))
-	(text "3-Pole Butterworth Low-Pass Filter\\nfc = {spec.f_0_ghz:.2f} GHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 127.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
+def generate_schematic(spec: CircuitSpec, output_dir: str, progress_callback=None) -> tuple[str, str]:
+    os.makedirs(output_dir, exist_ok=True)
+    renders_dir = os.path.join(output_dir, "renders")
+    os.makedirs(renders_dir, exist_ok=True)
 
-def _generate_highpass_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for a 3-pole High-Pass Filter."""
-    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_c1, u_l1, u_c2 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_gnd1 = str(uuid.uuid4())
+    sch_path = os.path.join(output_dir, f"{spec.name}.kicad_sch")
+    zoomed_png_path = os.path.join(renders_dir, "schematic_zoomed.png")
+    
+    gen_date = datetime.date.today().isoformat()
+    sch_uuid = str(uuid.uuid4())
+    
+    content = _generate_netlist_sch(spec, sch_uuid, gen_date)
+        
+    with open(sch_path, "w", encoding="utf-8") as f:
+        f.write(content)
 
-    c1_val = spec.components.get("C1", {}).get("value", "31.8pF")
-    l1_val = spec.components.get("L1", {}).get("value", "39.8nH")
-    c2_val = spec.components.get("C2", {}).get("value", "31.8pF")
-    c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    c2_fp = spec.components.get("C2", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
+    if progress_callback:
+        progress_callback("Exporting vector schematic and rendering zoomed high-DPI image...")
 
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Cutoff fc = {spec.f_0_ghz:.2f} GHz")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 63.5 76.2 90) (uuid "{u_c1}")
-		(property "Reference" "C1" (at 63.5 68.58 0))
-		(property "Value" "{c1_val}" (at 63.5 71.12 0))
-		(property "Footprint" "{c1_fp}" (at 63.5 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:L") (at 88.9 101.6 0) (uuid "{u_l1}")
-		(property "Reference" "L1" (at 93.98 101.6 0))
-		(property "Value" "{l1_val}" (at 93.98 104.14 0))
-		(property "Footprint" "{l1_fp}" (at 88.9 101.6 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 114.3 76.2 90) (uuid "{u_c2}")
-		(property "Reference" "C2" (at 114.3 68.58 0))
-		(property "Value" "{c2_val}" (at 114.3 71.12 0))
-		(property "Footprint" "{c2_fp}" (at 114.3 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 88.9 114.3 0) (uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at 88.9 118.11 0) (effects (hide yes)))
-		(property "Value" "GND" (at 88.9 119.38 0))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 59.69 76.2)))
-	(wire (pts (xy 67.31 76.2) (xy 88.9 76.2)))
-	(wire (pts (xy 88.9 76.2) (xy 88.9 97.79)))
-	(wire (pts (xy 88.9 105.41) (xy 88.9 114.3)))
-	(wire (pts (xy 88.9 76.2) (xy 110.49 76.2)))
-	(wire (pts (xy 118.11 76.2) (xy 139.7 76.2)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_OUT" (at 132.08 73.66 0))
-	(text "3-Pole Butterworth High-Pass Filter\\nfc = {spec.f_0_ghz:.2f} GHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 127.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
+    try:
+        cmd_svg = [
+            "kicad-cli", "sch", "export", "svg",
+            "--exclude-drawing-sheet",
+            "--no-background-color",
+            "--output", renders_dir,
+            sch_path
+        ]
+        subprocess.run(cmd_svg, capture_output=True, text=True, check=True)
 
-def _generate_bandpass_lc_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for an LC Tank Bandpass Filter."""
-    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_c1, u_l1 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_gnd1, u_gnd2 = str(uuid.uuid4()), str(uuid.uuid4())
+        generated_svg = os.path.join(renders_dir, f"{spec.name}.svg")
+        if os.path.exists(generated_svg) and cairosvg is not None:
+            cairosvg.svg2png(url=generated_svg, write_to=zoomed_png_path, scale=3.0)
+            img = Image.open(zoomed_png_path)
+            if img.mode == 'RGBA':
+                alpha = img.split()[-1]
+                bbox = alpha.getbbox()
+                if bbox:
+                    pad = 60
+                    x1 = max(0, bbox[0] - pad)
+                    y1 = max(0, bbox[1] - pad)
+                    x2 = min(img.width, bbox[2] + pad)
+                    y2 = min(img.height, bbox[3] + pad)
+                    cropped = img.crop((x1, y1, x2, y2))
+                    final_img = Image.new("RGBA", cropped.size, (255, 255, 255, 255))
+                    final_img.paste(cropped, (0, 0), cropped)
+                    final_img.convert("RGB").save(zoomed_png_path, "PNG", quality=95)
+    except Exception as e:
+        print(f"Failed to generate schematic render: {e}")
 
-    c1_val = spec.components.get("C1", {}).get("value", "25.3pF")
-    l1_val = spec.components.get("L1", {}).get("value", "100nH")
-    c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Resonance f0 = {spec.f_0_ghz*1000.0:.0f} MHz")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 76.2 76.2 90) (uuid "{u_c1}")
-		(property "Reference" "C1" (at 76.2 68.58 0))
-		(property "Value" "{c1_val}" (at 76.2 71.12 0))
-		(property "Footprint" "{c1_fp}" (at 76.2 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:L") (at 101.6 76.2 90) (uuid "{u_l1}")
-		(property "Reference" "L1" (at 101.6 68.58 0))
-		(property "Value" "{l1_val}" (at 101.6 71.12 0))
-		(property "Footprint" "{l1_fp}" (at 101.6 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 38.1 86.36 0) (uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at 38.1 90.17 0) (effects (hide yes)))
-		(property "Value" "GND" (at 38.1 91.44 0))
-	)
-	(symbol (lib_id "power:GND") (at 139.7 86.36 0) (uuid "{u_gnd2}")
-		(property "Reference" "#PWR02" (at 139.7 90.17 0) (effects (hide yes)))
-		(property "Value" "GND" (at 139.7 91.44 0))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 72.39 76.2)))
-	(wire (pts (xy 80.01 76.2) (xy 97.79 76.2)))
-	(wire (pts (xy 105.41 76.2) (xy 139.7 76.2)))
-	(wire (pts (xy 38.1 81.28) (xy 38.1 86.36)))
-	(wire (pts (xy 139.7 81.28) (xy 139.7 86.36)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_OUT" (at 125.0 73.66 0))
-	(text "{spec.title}\\nf0 = {spec.f_0_ghz*1000.0:.0f} MHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 110.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
-
-def _generate_bandpass_shunt_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for a Shunted Parallel LC Tank Bandpass Filter."""
-    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_c1, u_l1 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_gnd1, u_gnd2 = str(uuid.uuid4()), str(uuid.uuid4())
-
-    c1_val = spec.components.get("C1", {}).get("value", "26.4pF")
-    l1_val = spec.components.get("L1", {}).get("value", "100nH")
-    c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Resonance f0 = {spec.f_0_ghz*1000.0:.0f} MHz")
-		(comment 2 "Topology: Shunted Parallel LC Tank | Substrate: {spec.substrate_name} (h={spec.substrate_height_mm}mm, er={spec.dielectric_er})")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 76.2 101.6 0) (uuid "{u_c1}")
-		(property "Reference" "C1" (at 81.28 101.6 0))
-		(property "Value" "{c1_val}" (at 81.28 104.14 0))
-		(property "Footprint" "{c1_fp}" (at 76.2 101.6 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:L") (at 101.6 101.6 0) (uuid "{u_l1}")
-		(property "Reference" "L1" (at 106.68 101.6 0))
-		(property "Value" "{l1_val}" (at 106.68 104.14 0))
-		(property "Footprint" "{l1_fp}" (at 101.6 101.6 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 88.9 121.92 0) (uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at 88.9 125.73 0) (effects (hide yes)))
-		(property "Value" "GND" (at 88.9 127.0 0))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 88.9 76.2)))
-	(wire (pts (xy 88.9 76.2) (xy 139.7 76.2)))
-	(wire (pts (xy 88.9 76.2) (xy 88.9 83.82)))
-	(wire (pts (xy 88.9 83.82) (xy 76.2 83.82)))
-	(wire (pts (xy 88.9 83.82) (xy 101.6 83.82)))
-	(wire (pts (xy 76.2 83.82) (xy 76.2 97.79)))
-	(wire (pts (xy 101.6 83.82) (xy 101.6 97.79)))
-	(wire (pts (xy 76.2 105.41) (xy 76.2 114.3)))
-	(wire (pts (xy 101.6 105.41) (xy 101.6 114.3)))
-	(wire (pts (xy 76.2 114.3) (xy 101.6 114.3)))
-	(wire (pts (xy 88.9 114.3) (xy 88.9 121.92)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_OUT" (at 132.08 73.66 0))
-	(text "Shunted Parallel LC Tank Bandpass Filter\\nf0 = {spec.f_0_ghz*1000.0:.0f} MHz | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 137.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
-
-def _generate_bias_tee_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for an RF Bias Tee."""
-    u_j1, u_j2, u_j3 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_c1, u_l1 = str(uuid.uuid4()), str(uuid.uuid4())
-    c1_val = spec.components.get("C1", {}).get("value", "100pF")
-    l1_val = spec.components.get("L1", {}).get("value", "100nH")
-    c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j3_fp = spec.components.get("J3", {}).get("package", "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Bias Supply: {spec.power_voltage_v:.1f}V")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "RF_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 76.2 76.2 90) (uuid "{u_c1}")
-		(property "Reference" "C1" (at 76.2 68.58 0))
-		(property "Value" "{c1_val}" (at 76.2 71.12 0))
-		(property "Footprint" "{c1_fp}" (at 76.2 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:L") (at 101.6 50.8 0) (uuid "{u_l1}")
-		(property "Reference" "L1" (at 106.68 50.8 0))
-		(property "Value" "{l1_val}" (at 106.68 53.34 0))
-		(property "Footprint" "{l1_fp}" (at 101.6 50.8 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 101.6 25.4 90) (uuid "{u_j3}")
-		(property "Reference" "J3" (at 101.6 17.78 0))
-		(property "Value" "DC_IN" (at 101.6 20.32 0))
-		(property "Footprint" "{j3_fp}" (at 101.6 25.4 90) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "RF_DC_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 72.39 76.2)))
-	(wire (pts (xy 80.01 76.2) (xy 101.6 76.2)))
-	(wire (pts (xy 101.6 76.2) (xy 101.6 54.61)))
-	(wire (pts (xy 101.6 46.99) (xy 101.6 25.4)))
-	(wire (pts (xy 101.6 76.2) (xy 139.7 76.2)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_DC_OUT" (at 125.0 73.66 0))
-	(text "Wideband RF Bias Tee\\nZ0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 110.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
-
-def _generate_lna_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for an Active Low-Noise Amplifier (LNA)."""
-    u_u1 = str(uuid.uuid4())
-    u_c1, u_l1, u_c2 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_l2, u_c3, u_c4, u_r1 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_j1, u_j2, u_j3 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_gnd1, u_gnd2, u_gnd3, u_gnd4 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-
-    u1_fp = spec.components.get("U1", {}).get("package", "Package_TO_SOT_SMD:SOT-89-3")
-    u1_val = spec.components.get("U1", {}).get("value", "SPF5189Z")
-    c1_val = spec.components.get("C1", {}).get("value", "47pF")
-    c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    l1_val = spec.components.get("L1", {}).get("value", "8.2nH")
-    l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    c2_val = spec.components.get("C2", {}).get("value", "47pF")
-    c2_fp = spec.components.get("C2", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    l2_val = spec.components.get("L2", {}).get("value", "47nH")
-    l2_fp = spec.components.get("L2", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    c3_val = spec.components.get("C3", {}).get("value", "100pF")
-    c3_fp = spec.components.get("C3", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    c4_val = spec.components.get("C4", {}).get("value", "10nF")
-    c4_fp = spec.components.get("C4", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    r1_val = spec.components.get("R1", {}).get("value", "10R")
-    r1_fp = spec.components.get("R1", {}).get("package", "Resistor_SMD:R_0805_2012Metric")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j3_fp = spec.components.get("J3", {}).get("package", "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Gain = +{spec.target_s21_db:.1f} dB | NF = 0.6 dB")
-		(comment 2 "Active MMIC: {u1_val} (SOT-89) | Supply: +5V DC Bias Choke")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 67.31 0))
-		(property "Value" "SMA_IN" (at 38.1 69.85 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 54.61 76.2 90) (uuid "{u_c1}")
-		(property "Reference" "C1" (at 54.61 67.31 0))
-		(property "Value" "{c1_val}" (at 54.61 69.85 0))
-		(property "Footprint" "{c1_fp}" (at 54.61 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:L") (at 72.39 76.2 90) (uuid "{u_l1}")
-		(property "Reference" "L1" (at 72.39 67.31 0))
-		(property "Value" "{l1_val}" (at 72.39 69.85 0))
-		(property "Footprint" "{l1_fp}" (at 72.39 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:Amplifier_MMIC") (at 92.71 76.2 0) (uuid "{u_u1}")
-		(property "Reference" "U1" (at 92.71 66.04 0))
-		(property "Value" "{u1_val}" (at 92.71 68.58 0))
-		(property "Footprint" "{u1_fp}" (at 92.71 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 92.71 86.36 0) (uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at 92.71 90.17 0) (effects (hide yes)))
-		(property "Value" "GND" (at 92.71 91.44 0))
-	)
-	(symbol (lib_id "Device:L") (at 101.6 54.61 0) (uuid "{u_l2}")
-		(property "Reference" "L2" (at 107.95 54.61 0))
-		(property "Value" "{l2_val}" (at 107.95 57.15 0))
-		(property "Footprint" "{l2_fp}" (at 101.6 54.61 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 86.36 44.45 0) (uuid "{u_c3}")
-		(property "Reference" "C3" (at 80.01 43.18 0))
-		(property "Value" "{c3_val}" (at 80.01 45.72 0))
-		(property "Footprint" "{c3_fp}" (at 86.36 44.45 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 86.36 53.34 0) (uuid "{u_gnd2}")
-		(property "Reference" "#PWR02" (at 86.36 57.15 0) (effects (hide yes)))
-		(property "Value" "GND" (at 86.36 58.42 0))
-	)
-	(symbol (lib_id "Device:C") (at 116.84 44.45 0) (uuid "{u_c4}")
-		(property "Reference" "C4" (at 123.19 43.18 0))
-		(property "Value" "{c4_val}" (at 123.19 45.72 0))
-		(property "Footprint" "{c4_fp}" (at 116.84 44.45 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 116.84 53.34 0) (uuid "{u_gnd3}")
-		(property "Reference" "#PWR03" (at 116.84 57.15 0) (effects (hide yes)))
-		(property "Value" "GND" (at 116.84 58.42 0))
-	)
-	(symbol (lib_id "Device:R") (at 101.6 34.29 0) (uuid "{u_r1}")
-		(property "Reference" "R1" (at 107.95 34.29 0))
-		(property "Value" "{r1_val}" (at 107.95 36.83 0))
-		(property "Footprint" "{r1_fp}" (at 101.6 34.29 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_01x02_Pin") (at 101.6 17.78 0) (uuid "{u_j3}")
-		(property "Reference" "J3" (at 101.6 10.16 0))
-		(property "Value" "+5V_IN" (at 101.6 12.7 0))
-		(property "Footprint" "{j3_fp}" (at 101.6 17.78 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 90.17 21.59 0) (uuid "{u_gnd4}")
-		(property "Reference" "#PWR04" (at 90.17 25.4 0) (effects (hide yes)))
-		(property "Value" "GND" (at 90.17 26.67 0))
-	)
-	(symbol (lib_id "Device:C") (at 119.38 76.2 90) (uuid "{u_c2}")
-		(property "Reference" "C2" (at 119.38 67.31 0))
-		(property "Value" "{c2_val}" (at 119.38 69.85 0))
-		(property "Footprint" "{c2_fp}" (at 119.38 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 142.24 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 142.24 67.31 0))
-		(property "Value" "SMA_OUT" (at 142.24 69.85 0))
-		(property "Footprint" "{j2_fp}" (at 142.24 76.2 0) (effects (hide yes)))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 51.435 76.2)))
-	(wire (pts (xy 57.785 76.2) (xy 71.12 76.2)))
-	(wire (pts (xy 73.66 76.2) (xy 86.36 76.2)))
-	(wire (pts (xy 92.71 83.82) (xy 92.71 86.36)))
-	(wire (pts (xy 99.06 76.2) (xy 101.6 76.2)))
-	(wire (pts (xy 101.6 76.2) (xy 116.205 76.2)))
-	(wire (pts (xy 101.6 76.2) (xy 101.6 58.42)))
-	(wire (pts (xy 101.6 50.8) (xy 101.6 40.64)))
-	(wire (pts (xy 86.36 40.64) (xy 116.84 40.64)))
-	(wire (pts (xy 86.36 40.64) (xy 86.36 41.275)))
-	(wire (pts (xy 86.36 47.625) (xy 86.36 53.34)))
-	(wire (pts (xy 116.84 40.64) (xy 116.84 41.275)))
-	(wire (pts (xy 116.84 47.625) (xy 116.84 53.34)))
-	(wire (pts (xy 101.6 40.64) (xy 101.6 38.1)))
-	(wire (pts (xy 101.6 30.48) (xy 101.6 22.86)))
-	(wire (pts (xy 101.6 22.86) (xy 97.79 19.05)))
-	(wire (pts (xy 97.79 16.51) (xy 90.17 16.51)))
-	(wire (pts (xy 90.17 16.51) (xy 90.17 21.59)))
-	(wire (pts (xy 122.555 76.2) (xy 142.24 76.2)))
-	(label "RF_IN" (at 43.18 73.66 0))
-	(label "RF_OUT" (at 134.62 73.66 0))
-	(label "+5V_VDD" (at 104.14 24.13 0))
-	(text "SPF5189Z Active Low-Noise Amplifier (LNA)\\nGain: +{spec.target_s21_db:.1f} dB | NF: 0.6 dB | Z0 = {spec.z0_ohm:.1f} Ohm" (at 92.71 98.0 0) (effects (font (size 2.2 2.2))))
-)
-"""
-
-def _generate_bjt_lna_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for a Discrete BJT RF Low-Noise Amplifier (MMBT5179)."""
-    u_q1 = str(uuid.uuid4())
-    u_c1, u_c2, u_c3, u_c4 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_r1, u_r2, u_r3, u_l1 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_j1, u_j2, u_j3 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    u_gnd1, u_gnd2, u_gnd3, u_gnd4, u_gnd5 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-
-    q1_val = spec.components.get("Q1", {}).get("value", "MMBT5179")
-    q1_fp = spec.components.get("Q1", {}).get("package", "Package_TO_SOT_SMD:SOT-23")
-    c1_val = spec.components.get("C1", {}).get("value", "47pF")
-    c1_fp = spec.components.get("C1", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    c2_val = spec.components.get("C2", {}).get("value", "47pF")
-    c2_fp = spec.components.get("C2", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    c3_val = spec.components.get("C3", {}).get("value", "100pF")
-    c3_fp = spec.components.get("C3", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    c4_val = spec.components.get("C4", {}).get("value", "10nF")
-    c4_fp = spec.components.get("C4", {}).get("package", "Capacitor_SMD:C_0805_2012Metric")
-    r1_val = spec.components.get("R1", {}).get("value", "10k")
-    r1_fp = spec.components.get("R1", {}).get("package", "Resistor_SMD:R_0805_2012Metric")
-    r2_val = spec.components.get("R2", {}).get("value", "3.3k")
-    r2_fp = spec.components.get("R2", {}).get("package", "Resistor_SMD:R_0805_2012Metric")
-    r3_val = spec.components.get("R3", {}).get("value", "100R")
-    r3_fp = spec.components.get("R3", {}).get("package", "Resistor_SMD:R_0805_2012Metric")
-    l1_val = spec.components.get("L1", {}).get("value", "47nH")
-    l1_fp = spec.components.get("L1", {}).get("package", "Inductor_SMD:L_0603_1608Metric")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j3_fp = spec.components.get("J3", {}).get("package", "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Target Gain = +{spec.target_s21_db:.1f} dB")
-		(comment 2 "Discrete NPN RF BJT: {q1_val} (SOT-23) | VCC = +5V DC")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 67.31 0))
-		(property "Value" "SMA_IN" (at 38.1 69.85 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 54.61 76.2 90) (uuid "{u_c1}")
-		(property "Reference" "C1" (at 54.61 67.31 0))
-		(property "Value" "{c1_val}" (at 54.61 69.85 0))
-		(property "Footprint" "{c1_fp}" (at 54.61 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:R") (at 76.2 54.61 0) (uuid "{u_r1}")
-		(property "Reference" "R1" (at 71.12 54.61 0))
-		(property "Value" "{r1_val}" (at 71.12 57.15 0))
-		(property "Footprint" "{r1_fp}" (at 76.2 54.61 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:R") (at 76.2 95.25 0) (uuid "{u_r2}")
-		(property "Reference" "R2" (at 71.12 95.25 0))
-		(property "Value" "{r2_val}" (at 71.12 97.79 0))
-		(property "Footprint" "{r2_fp}" (at 76.2 95.25 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 76.2 104.14 0) (uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at 76.2 107.95 0) (effects (hide yes)))
-		(property "Value" "GND" (at 76.2 109.22 0))
-	)
-	(symbol (lib_id "Device:Q_NPN_BEC") (at 91.44 76.2 0) (uuid "{u_q1}")
-		(property "Reference" "Q1" (at 97.79 76.2 0))
-		(property "Value" "{q1_val}" (at 97.79 78.74 0))
-		(property "Footprint" "{q1_fp}" (at 91.44 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:R") (at 88.9 95.25 0) (uuid "{u_r3}")
-		(property "Reference" "R3" (at 83.82 95.25 0))
-		(property "Value" "{r3_val}" (at 83.82 97.79 0))
-		(property "Footprint" "{r3_fp}" (at 88.9 95.25 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 88.9 104.14 0) (uuid "{u_gnd2}")
-		(property "Reference" "#PWR02" (at 88.9 107.95 0) (effects (hide yes)))
-		(property "Value" "GND" (at 88.9 109.22 0))
-	)
-	(symbol (lib_id "Device:C") (at 99.06 95.25 0) (uuid "{u_c3}")
-		(property "Reference" "C3" (at 104.14 95.25 0))
-		(property "Value" "{c3_val}" (at 104.14 97.79 0))
-		(property "Footprint" "{c3_fp}" (at 99.06 95.25 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 99.06 104.14 0) (uuid "{u_gnd3}")
-		(property "Reference" "#PWR03" (at 99.06 107.95 0) (effects (hide yes)))
-		(property "Value" "GND" (at 99.06 109.22 0))
-	)
-	(symbol (lib_id "Device:L") (at 93.98 54.61 0) (uuid "{u_l1}")
-		(property "Reference" "L1" (at 99.06 54.61 0))
-		(property "Value" "{l1_val}" (at 99.06 57.15 0))
-		(property "Footprint" "{l1_fp}" (at 93.98 54.61 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 114.3 71.12 90) (uuid "{u_c2}")
-		(property "Reference" "C2" (at 114.3 62.23 0))
-		(property "Value" "{c2_val}" (at 114.3 64.77 0))
-		(property "Footprint" "{c2_fp}" (at 114.3 71.12 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 71.12 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 62.23 0))
-		(property "Value" "SMA_OUT" (at 139.7 64.77 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 71.12 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:C") (at 107.95 50.8 0) (uuid "{u_c4}")
-		(property "Reference" "C4" (at 114.3 50.8 0))
-		(property "Value" "{c4_val}" (at 114.3 53.34 0))
-		(property "Footprint" "{c4_fp}" (at 107.95 50.8 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 107.95 60.96 0) (uuid "{u_gnd4}")
-		(property "Reference" "#PWR04" (at 107.95 64.77 0) (effects (hide yes)))
-		(property "Value" "GND" (at 107.95 66.04 0))
-	)
-	(symbol (lib_id "Connector:Conn_01x02_Pin") (at 121.92 25.4 0) (uuid "{u_j3}")
-		(property "Reference" "J3" (at 121.92 17.78 0))
-		(property "Value" "+5V_GND" (at 121.92 20.32 0))
-		(property "Footprint" "{j3_fp}" (at 121.92 25.4 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "power:GND") (at 118.11 19.05 0) (uuid "{u_gnd5}")
-		(property "Reference" "#PWR05" (at 118.11 15.24 0) (effects (hide yes)))
-		(property "Value" "GND" (at 118.11 13.97 0))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 51.435 76.2)))
-	(wire (pts (xy 57.785 76.2) (xy 76.2 76.2)))
-	(wire (pts (xy 76.2 76.2) (xy 86.36 76.2)))
-	(wire (pts (xy 76.2 76.2) (xy 76.2 58.42)))
-	(wire (pts (xy 76.2 50.8) (xy 76.2 40.64)))
-	(wire (pts (xy 76.2 76.2) (xy 76.2 91.44)))
-	(wire (pts (xy 76.2 99.06) (xy 76.2 104.14)))
-	(wire (pts (xy 93.98 81.28) (xy 93.98 86.36)))
-	(wire (pts (xy 93.98 86.36) (xy 88.9 86.36)))
-	(wire (pts (xy 88.9 86.36) (xy 88.9 91.44)))
-	(wire (pts (xy 88.9 99.06) (xy 88.9 104.14)))
-	(wire (pts (xy 93.98 86.36) (xy 99.06 86.36)))
-	(wire (pts (xy 99.06 86.36) (xy 99.06 92.075)))
-	(wire (pts (xy 99.06 98.425) (xy 99.06 104.14)))
-	(wire (pts (xy 93.98 71.12) (xy 93.98 58.42)))
-	(wire (pts (xy 93.98 50.8) (xy 93.98 40.64)))
-	(wire (pts (xy 93.98 71.12) (xy 111.125 71.12)))
-	(wire (pts (xy 117.475 71.12) (xy 139.7 71.12)))
-	(wire (pts (xy 76.2 40.64) (xy 93.98 40.64)))
-	(wire (pts (xy 93.98 40.64) (xy 107.95 40.64)))
-	(wire (pts (xy 107.95 40.64) (xy 107.95 47.625)))
-	(wire (pts (xy 107.95 53.975) (xy 107.95 60.96)))
-	(wire (pts (xy 107.95 40.64) (xy 118.11 40.64)))
-	(wire (pts (xy 118.11 40.64) (xy 118.11 26.67)))
-	(wire (pts (xy 118.11 24.13) (xy 118.11 19.05)))
-	(label "RF_IN" (at 43.18 73.66 0))
-	(label "RF_OUT" (at 132.08 68.58 0))
-	(label "+5V_VDD" (at 97.79 38.1 0))
-	(text "{q1_val} Discrete NPN RF Low-Noise Amplifier (LNA)\\nGain: +{spec.target_s21_db:.1f} dB | VCC: +5.0V | Z0 = {spec.z0_ohm:.1f} Ohm" (at 88.9 120.0 0) (effects (font (size 2.2 2.2))))
-)
-"""
-
-def _generate_generic_rf_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Fallback generic 2-port RF circuit schematic."""
-    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
-    u_r1 = str(uuid.uuid4())
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:R") (at 88.9 76.2 90) (uuid "{u_r1}")
-		(property "Reference" "R1" (at 88.9 68.58 0))
-		(property "Value" "50R" (at 88.9 71.12 0))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 85.09 76.2)))
-	(wire (pts (xy 92.71 76.2) (xy 139.7 76.2)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_OUT" (at 132.08 73.66 0))
-)
-"""
-
-def _generate_calibration_load_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for a precision 1-port RF calibration load standard."""
-    u_j1 = str(uuid.uuid4())
-    u_r1 = str(uuid.uuid4())
-    u_gnd1 = str(uuid.uuid4())
-
-    r1_val = spec.components.get("R1", {}).get("value", "50R")
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-
-    has_r2 = "R2" in spec.components
-    if has_r2:
-        u_r2 = str(uuid.uuid4())
-        r2_val = spec.components.get("R2", {}).get("value", "100R")
-        r2_sym = f"""\t(symbol (lib_id "Device:R") (at 78.74 101.6 0) (uuid "{u_r2}")
-\t\t(property "Reference" "R2" (at 83.82 101.6 0))
-\t\t(property "Value" "{r2_val}" (at 83.82 104.14 0))
-\t\t(property "Footprint" "Resistor_SMD:R_0805_2012Metric" (at 78.74 101.6 0) (effects (hide yes)))
-\t)
-\t(wire (pts (xy 71.12 76.2) (xy 78.74 76.2)))
-\t(wire (pts (xy 78.74 76.2) (xy 78.74 97.79)))
-\t(wire (pts (xy 78.74 105.41) (xy 78.74 114.3)))
-\t(wire (pts (xy 63.5 114.3) (xy 78.74 114.3)))
-\t(wire (pts (xy 71.12 114.3) (xy 71.12 119.38)))"""
-        sub_desc = f"R1 || R2 = {spec.z0_ohm:.1f}Ω | Dual Shunt Low-Inductance Termination"
-        gnd_x = "71.12"
-    else:
-        r2_sym = f"""\t(wire (pts (xy 63.5 105.41) (xy 63.5 119.38)))"""
-        sub_desc = f"R1 = {r1_val} Precision Thin-Film Shunt Termination"
-        gnd_x = "63.5"
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | 1-Port SOLT Calibration Load Standard")
-		(comment 2 "{sub_desc} | Return Loss S11 < -30 dB")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Device:R") (at 63.5 101.6 0) (uuid "{u_r1}")
-		(property "Reference" "R1" (at 58.42 101.6 0))
-		(property "Value" "{r1_val}" (at 58.42 104.14 0))
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric" (at 63.5 101.6 0) (effects (hide yes)))
-	)
-{r2_sym}
-	(symbol (lib_id "power:GND") (at {gnd_x} 119.38 0) (uuid "{u_gnd1}")
-		(property "Reference" "#PWR01" (at {gnd_x} 123.19 0) (effects (hide yes)))
-		(property "Value" "GND" (at {gnd_x} 124.46 0))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 63.5 76.2)))
-	(wire (pts (xy 63.5 76.2) (xy 63.5 97.79)))
-	(label "RF_IN" (at 45.72 73.66 0))
-
-	(text "{spec.z0_ohm:.0f}Ω Precision 1-Port RF Calibration Load Standard (SOLT Match)\\n{sub_desc}\\nReturn Loss S11 < -30 dB (DC to {spec.f_max_ghz:.0f} GHz)" (at 60.0 135.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
-
-def _generate_through_line_sch(spec: CircuitSpec, root_uuid: str, gen_date: str) -> str:
-    """Generate KiCad 10 schematic for a 50-ohm CPWG through-line test fixture."""
-    u_j1, u_j2 = str(uuid.uuid4()), str(uuid.uuid4())
-    j1_fp = spec.components.get("J1", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-    j2_fp = spec.components.get("J2", {}).get("package", "Connector_Coaxial:SMA_Samtec_SMA-J-P-H-ST-EM1_EdgeMount")
-
-    return f"""(kicad_sch
-	(version 20231120)
-	(generator "rf_agent")
-	(generator_version "10.0")
-	(uuid "{root_uuid}")
-	(paper "A4")
-	(title_block
-		(title "{spec.title}")
-		(date "{gen_date}")
-		(rev "1.0")
-		(company "RF AI Suite")
-		(comment 1 "Z0 = {spec.z0_ohm:.1f} Ohm | Grounded Coplanar Waveguide (CPWG) Through Line")
-		(comment 2 "Continuous 50Ω RF Path J1 -> J2 | Substrate: {spec.substrate_name} (h={spec.substrate_height_mm}mm, er={spec.dielectric_er})")
-	)
-	(lib_symbols
-{_get_common_lib_symbols()}
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 38.1 76.2 0) (uuid "{u_j1}")
-		(property "Reference" "J1" (at 38.1 68.58 0))
-		(property "Value" "SMA_IN" (at 38.1 71.12 0))
-		(property "Footprint" "{j1_fp}" (at 38.1 76.2 0) (effects (hide yes)))
-	)
-	(symbol (lib_id "Connector:Conn_Coaxial") (at 139.7 76.2 0) (uuid "{u_j2}")
-		(property "Reference" "J2" (at 139.7 68.58 0))
-		(property "Value" "SMA_OUT" (at 139.7 71.12 0))
-		(property "Footprint" "{j2_fp}" (at 139.7 76.2 0) (effects (hide yes)))
-	)
-	(wire (pts (xy 38.1 76.2) (xy 139.7 76.2)))
-	(label "RF_IN" (at 45.72 73.66 0))
-	(label "RF_OUT" (at 132.08 73.66 0))
-
-	(text "50Ω Grounded Coplanar Waveguide (CPWG) Through Transmission Line\\nLoss < 0.2 dB | S11 < -25 dB across band (DC to {spec.f_max_ghz:.1f} GHz)" (at 60.0 110.0 0) (effects (font (size 2.0 2.0))))
-)
-"""
+    return sch_path, zoomed_png_path
