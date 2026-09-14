@@ -7,7 +7,10 @@ import os
 import uuid
 import datetime
 import subprocess
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 try:
     import cairosvg
 except ImportError:
@@ -190,7 +193,7 @@ def generate_schematic(spec: CircuitSpec, output_dir: str, progress_callback=Non
         subprocess.run(cmd_svg, capture_output=True, text=True, check=True)
 
         generated_svg = os.path.join(renders_dir, f"{spec.name}.svg")
-        if os.path.exists(generated_svg) and cairosvg is not None:
+        if os.path.exists(generated_svg) and cairosvg is not None and Image is not None:
             cairosvg.svg2png(url=generated_svg, write_to=zoomed_png_path, scale=3.0)
             img = Image.open(zoomed_png_path)
             if img.mode == 'RGBA':

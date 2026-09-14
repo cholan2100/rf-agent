@@ -186,7 +186,7 @@ def main():
             cf.create_stack(
                 StackName=stack_name,
                 TemplateBody=template_body,
-                Capabilities=["CAPABILITY_IAM"],
+                Capabilities=["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"],
                 Parameters=parameters,
                 Tags=[
                     {"Key": "Environment", "Value": "rf-suite-saas"},
@@ -206,7 +206,7 @@ def main():
             cf.update_stack(
                 StackName=stack_name,
                 TemplateBody=template_body,
-                Capabilities=["CAPABILITY_IAM"],
+                Capabilities=["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"],
                 Parameters=parameters,
             )
             print("  Stack update initiated. Waiting for UPDATE_COMPLETE...")

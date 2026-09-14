@@ -191,7 +191,7 @@ Resources:
           # 2. Clone rf-agent repository with submodules
           mkdir -p /opt/rf-agent-host
           cd /opt/rf-agent-host
-          git clone --branch feature/hosted-saas-service --recursive https://github.com/cholan2100/rf-agent.git rf-agent || \
+          git clone --branch feature/netlist-driven-schematic --recursive https://github.com/cholan2100/rf-agent.git rf-agent || \
           git clone --recursive https://github.com/cholan2100/rf-agent.git rf-agent
           cd /opt/rf-agent-host/rf-agent
           git submodule update --init --recursive
