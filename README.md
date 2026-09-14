@@ -24,66 +24,17 @@ An autonomous AI RF/Microwave hardware engineering engine and PCB design suite.
 
 ## Quickstart
 
-[![Claude](https://img.shields.io/badge/Claude-Desktop%20%26%20CLI-D97706?logo=anthropic&logoColor=white)](#1-claude-claude-desktop--claude-code-cli)
-[![Codex](https://img.shields.io/badge/OpenAI-Codex%20%26%20ChatGPT-00A67E?logo=openai&logoColor=white)](#2-codex-openai-codex--chatgpt)
-[![OpenCode](https://img.shields.io/badge/OpenCode-Desktop%20%26%20CLI-7C3AED?logo=github&logoColor=white)](#3-opencode)
-[![Antigravity](https://img.shields.io/badge/Antigravity-Desktop%20%26%20CLI-4285F4?logo=google&logoColor=white)](#4-antigravity-desktop--cli)
-
-The workflow is identical whether you prefer a **Desktop App**, **CLI**, or **IDE**:
-
-### Step 1: Clone & Open the Workspace
-```bash
-git clone --recurse-submodules https://github.com/cholan2100/rf-agent.git
-cd rf-agent
-```
-*(Or open/clone the repository in your preferred Desktop app or IDE)*
-
-### Step 2: Launch Your Agent & Send the Initialization Prompt
-Launch your agent inside the `rf-agent` directory and paste this prompt directly into the chat:
+In your preferred AI agent harness (Antigravity, Cursor, Claude Code, OpenCode, Codex, GitHub Copilot, Windsurf, Roo Code), paste the following prompt into the chat:
 
 ```text
-Initialize the agent as per governing files in this repository.
+Clone https://github.com/cholan2100/rf-agent.git with submodules and Initialize the agent as per governing files in this repository.
 ```
 
----
-
-### Agent Harness Reference
-
-#### 1. Claude (Claude Desktop & Claude Code CLI)
-* **Desktop**: Open the cloned `rf-agent` folder in Claude Desktop.
-* **CLI**: Run `claude` inside the `rf-agent` directory.
-* **Prompt in Chat**:
-  ```text
-  Initialize the agent as per governing files in this repository.
-  ```
-
-#### 2. Codex (OpenAI Codex / ChatGPT)
-* **Desktop / Web**: Open the `rf-agent` workspace in Codex or ChatGPT.
-* **CLI**: Run `codex` inside the `rf-agent` directory.
-* **Prompt in Chat**:
-  ```text
-  Initialize the agent as per governing files in this repository.
-  ```
-
-#### 3. OpenCode
-* **Desktop / Web**: Open the `rf-agent` workspace in OpenCode.
-* **CLI**: Run `opencode` inside the `rf-agent` directory.
-* **Prompt in Chat**:
-  ```text
-  Initialize the agent as per governing files in this repository.
-  ```
-
-#### 4. Antigravity (Desktop, IDE & CLI)
-* **Desktop**: Open Antigravity, or in an empty workspace send:
-  ```text
-  Clone https://github.com/cholan2100/rf-agent.git with submodules into this workspace and initialize the agent per AGENTS.md.
-  ```
-* **IDE**: Open the cloned `rf-agent` folder in Antigravity IDE and prompt in the sidebar.
-* **CLI**: Run `agy` inside the `rf-agent` directory.
-* **Prompt in Chat**:
-  ```text
-  Initialize the agent as per governing files in this repository.
-  ```
+> [!TIP]
+> If you have already cloned the repository and opened the workspace folder inside your harness, you can simply prompt:
+> ```text
+> Initialize the agent as per governing files in this repository.
+> ```
 
 ---
 
