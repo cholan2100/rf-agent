@@ -11,6 +11,44 @@ Your role is to autonomously translate high-level RF engineering requirements in
 
 ---
 
+## 0. Repository Quick Reference (Map, Commands & Gotchas)
+
+### Directory Map
+- **`agent/`** — Agent-side Python package: `workflow.py` (9-stage orchestrator CLI), `spec.py` (circuit synthesis math, `parse_custom_circuit`, spec-JSON loading), `schematic_gen.py`, `pcb_gen.py`, `em_solver.py` (openEMS FDTD), `qucs_sim.py`, `chart_gen.py`, `report_gen.py`, `gerber_pack.py`, `renderer.py`, `freecad_gen.py`, `llm_synth.py`.
+- **`agent/saas/`** — SaaS microservice: FastAPI server (`app.py`), REST client (`client.py`), FastMCP server (`mcp_server.py`), `models.py`.
+- **`agent/aws/`** — Legacy remote-execution backend: SSM/SSH client (`rf_remote_client.py`) + S3 artifact sync (`sync_manager.py`).
+- **`rf-suite/`** — Git submodule (`cholan2100/rf-suite`): containerized toolchain and the **full launcher set** in `rf-suite/bin/` (`rf-run`, `rf-client`, `rf-bash`, `rf-gui`, `rf-saas-server`, `rf-kicad`, `rf-freecad`, `rf-openems`, `rf-qucs`, …). Fresh clones leave this directory EMPTY until submodule init (§1.2 Gate 1).
+- **`aws/`** — Cloud deployment recipes: `cloudformation.yaml`, `terraform/`, `deploy_saas.py`, `lambda_wake.py`, `user-data.sh`.
+- **`bin/`** — Host-side shims (`rf-run(.bat)`, `rf-aws(.bat)`); prefer the complete launchers under `rf-suite/bin/`.
+- **`projects/<slug>_<6hex>/`** — Per-design artifacts: `spec.json`, `.kicad_sch`/`.kicad_pcb`, `renders/`, `charts/`, Touchstone `.sNp`, Gerber ZIP, `PERFORMANCE_REPORT.md`, `<name>_drc.json`.
+- **`tests/`** — `unittest` suite (no pytest config in repo): `test_workflow.py`, `test_saas_api.py`, `test_saas_client.py`, `test_aws_integration.py`, plus `verify_environment.py` toolchain diagnostics.
+- **`docs/`** — `AWS_SETUP.md` (EC2/SSM/S3 deployment) and `SAAS_API.md` (REST + FastMCP endpoints, auth, wake trigger). Read both before touching `agent/saas/` or `aws/`.
+
+### Commands
+```bash
+# Unit tests (unittest — canonical run inside the container):
+rf-suite\bin\rf-run.bat python -m unittest discover -s tests -v    # Windows
+./rf-suite/bin/rf-run python3 -m unittest discover -s tests -v     # Linux / WSL
+
+# Toolchain diagnostics:
+rf-suite\bin\rf-run.bat python tests/verify_environment.py
+
+# Per-stage workflow runs (stages: schematic, pcb, render, cad, em, qucs, charts, gerbers, report):
+rf-suite\bin\rf-run.bat python -m agent.workflow --spec-file spec.json --stages schematic
+
+# SaaS stage dispatch + health probe:
+rf-suite\bin\rf-client.bat -ProjectName "<slug>_<6hex>" -SpecFile spec.json -Stages schematic
+curl -s http://rf.nakedcircuits.com:8000/health
+```
+
+### Conventions & Gotchas
+- **Host platform**: Windows + Git Bash shell; Docker lives in WSL Debian (`wsl -d Debian bash -c "docker ..."`). When `RF_BACKEND=aws_saas`, do NOT run Python or WSL on the host at all (§1.3).
+- **Untracked scratch files** at the repo root (`scratch*.py`, `pcb_gen_backup.py`, `AGENTS_backup.md`, root `spec.json`, `*-drc.rpt`) are per-session agent work products, not source code — leave them untracked and never treat them as canonical.
+- **`.env` keys**: current protocol backends are `local`, `saas` (local WSL SaaS), and `aws_saas` (hosted microservice) with `RF_SAAS_URL` / `RF_WAKE_URL`. Note `.env.example` still documents the legacy `RF_BACKEND=aws` SSM/S3 backend driven by `agent/aws/` + `bin/rf-aws`.
+- **Thin pointer files** (`SKILLS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.agents/skills/rf-agent/SKILL.md`): never duplicate protocol rules there — edit this file only (see "Single Source of Truth" above).
+
+---
+
 ## 1. Operating Philosophy: Pure Agentic Execution & Toolchain Architecture
 
 In this repository, **the user does NOT run procedural Python scripts**. You (the AI Agent) directly drive the entire EDA engineering lifecycle:
