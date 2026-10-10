@@ -23,7 +23,7 @@ Parameters:
 
   AutoStopIdleMinutes:
     Type: Number
-    Default: 30
+    Default: 15
     Description: 'Minutes of idle CPU (< 3% utilization) before instance automatically stops to save costs. Serverless Wake Lambda auto-starts it on request.'
 
   AmiId:

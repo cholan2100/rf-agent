@@ -38,23 +38,23 @@ All tools inside the container are executed from the repository root via the cro
 > [!CRITICAL]
 > **BEFORE LAUNCHING ANY DESIGN WORKFLOW OR STAGE:**
 > The AI Agent MUST verify the repository is fully provisioned. Provisioning is a strict sequence of gates:
-> - **(Step 0.0)** `.env` environment file bootstrapping: If `.env` does not exist, automatically create it with default AWS SaaS endpoint (`RF_BACKEND=aws_saas`, `RF_SAAS_URL=http://rf.nakedcircuits.com:8000`) and **zero AWS credentials**.
+> - **(Step 0.0)** `.env` environment file bootstrapping: If `.env` does not exist, automatically create it with default local containerized toolchain (`RF_BACKEND=local`) and **zero AWS credentials**.
 > - **(Gate 1)** the `rf-suite` submodule is checked out.
-> - **(Gate 2)** execution backend selection & readiness verification.
+> - **(Gate 2)** execution backend readiness verification (default to local dockerized `rf-suite`; only use/announce SaaS if verified online).
 > - **(Gate 3)** post-initialization readiness and user invitation greeting.
 > Keep the user informed at every step.
 
 ### Step 0.0: Automatic `.env` Environment Bootstrapping (Zero AWS Credentials)
 Before checking any solvers, the agent checks if `.env` exists at the repository root.
 - **If `.env` is missing (fresh clone)**:
-  The agent automatically creates `.env` with the default SaaS microservice domain and **no AWS credentials**:
+  The agent automatically creates `.env` with the default local containerized toolchain:
   ```ini
-  # RF Suite SaaS Microservice Configuration
-  RF_BACKEND=aws_saas
+  # RF Agent Toolchain Configuration
+  RF_BACKEND=local
   RF_SAAS_URL=http://rf.nakedcircuits.com:8000
   RF_WAKE_URL=https://rfhealth.nakedcircuits.com
   ```
-  Users do **not** have to bother with manual `.env` file management or AWS IAM credentials. The cloud SaaS microservice handles all compute headlessly.
+  Users do **not** have to bother with manual `.env` file management or AWS IAM credentials.
 - **If `.env` exists**: The agent respects the existing user configuration.
 
 ### Gate 1 (Step 0.1): Submodule Initialization & Verification
@@ -84,42 +84,27 @@ Before checking any solvers, the agent checks if `.env` exists at the repository
 >
 > 3. **IF THE LAUNCHER FILE EXISTS**: Gate 1 passes — proceed directly to Gate 2 (Step 0.2).
 
-### Gate 2 (Step 0.2): Execution Backend Selection & Readiness (AWS SaaS vs Local Docker / WSL)
+### Gate 2 (Step 0.2): Execution Backend Readiness Verification (Local Docker vs SaaS)
 
 > [!IMPORTANT]
-> **Default Execution Backend**: `RF_BACKEND=aws_saas` is the **canonical default and recommended option**.
-> Pure cloud microservice architecture pointing to `http://rf.nakedcircuits.com:8000` with zero workstation EDA/CAD dependencies (no KiCad, FreeCAD, openEMS, Docker, or WSL required on the developer host).
-> During repository bootstrapping / initialization (Turn 0), the AI Agent MUST check with the user via `ask_question` to confirm which backend to configure:
-> 1. **SaaS on AWS (`http://rf.nakedcircuits.com:8000`)** (easy, zero setup, cloud-native microservice) — Recommended
-> 2. **Direct Local Commands execution** (fastest local execution, WSL & Docker required)
-> 3. **SaaS on Local WSL** (deployment testing)
+> **Default Execution Backend**: `RF_BACKEND=local` (Direct Local Commands execution inside the containerized `rf-suite` Docker environment) is the **canonical default**.
+>
+> **SaaS Service Availability & Silent Fallback Protocol**:
+> - The hosted AWS SaaS microservice (`http://rf.nakedcircuits.com:8000`) is an optional cloud offload backend.
+> - **Availability Probe**: During Turn 0 bootstrap, the agent quickly checks if the cloud SaaS service is online via `curl -s --connect-timeout 2 http://rf.nakedcircuits.com:8000/health`.
+> - **IF THE SAAS API SERVICE IS UNAVAILABLE** (e.g. returns HTTP 503, connection refused, timed out, or stopped):
+>   1. **DO NOT USE SAAS**: The agent MUST NOT route design stages to the SaaS microservice.
+>   2. **DO NOT ANNOUNCE OR OFFER SAAS TO THE USER**: The agent MUST NOT announce or offer the SaaS service in chat or in backend selection modals.
+>   3. **SILENT DEFAULT TO LOCAL DOCKER**: The agent silently defaults to the **local dockerized `rf-suite`** (`RF_BACKEND=local`) and proceeds directly with local container readiness verification (§Step 2b Option 1). Do NOT prompt the user with unavailable cloud options.
+> - **ONLY IF THE SAAS API SERVICE IS ONLINE & HEALTHY (HTTP 200)**:
+>   If the user has not explicitly configured a backend and the SaaS microservice is verified online and healthy, the agent may present the option via `ask_question`:
+>   - `(Recommended) Direct Local Commands execution (fastest local execution, WSL & Docker)`
+>   - `SaaS on AWS (cloud microservice, zero local EDA dependencies)`
+>   - `SaaS on Local WSL (deployment testing)`
 
-#### Step 2a: Mandatory User Backend Confirmation via `ask_question`
-Unless the user's initial prompt explicitly declared which backend to run on (e.g. "run using AWS SaaS", "run using local SaaS", or "run direct local"), the AI Agent MUST invoke the interactive modal `ask_question` during Turn 0 bootstrap before verifying or launching any solvers:
+#### Step 2a: Backend Readiness Verification Based on Availability
 
-- **Question**: `"Which RF toolchain execution backend would you like to use for simulations and PCB design?"`
-- **Options**:
-  - `(Recommended) SaaS on AWS (easy, pure cloud microservice, zero local EDA dependencies)`
-  - `Direct Local Commands execution (fastest local execution, WSL installation required)`
-  - `SaaS on Local WSL (deployment testing)`
-
-#### Step 2b: Execution Backend Setup & Verification Based on User Selection
-
-* **Option 1: If User Selects SaaS on AWS (`RF_BACKEND=aws_saas` - Recommended AWS Hosted SaaS Microservice)**:
-  - **Zero Workstation EDA, Python, or WSL Dependencies**: No KiCad, FreeCAD, openEMS, Docker, Python, or WSL needed on the developer host. **Do NOT run python or WSL on the host system** when AWS SaaS is active.
-  - **Agent Intelligence Circuit Synthesis**: The AI Agent designs the schematic using its own RF engineering intellect (component values, topology, footprints, CPWG dimensions) and passes the specification to the cloud SaaS microservice.
-  - **Operating Mechanism**: Pure cloud microservice architecture. The agent communicates with AWS **strictly via HTTP REST endpoints** (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `rf-suite\bin\rf-client.bat` or native PowerShell / curl.
-  - **Serverless Wake-on-Request**: If the EC2 host is asleep/stopped (due to idle cost saving), `rf-client.bat` automatically queries `RF_WAKE_URL`, triggering an AWS Lambda function that starts the EC2 instance and waits until `/health` is ready before dispatching stages.
-  - **No Direct AWS Commands**: The agent NEVER uses AWS SSM or SSH to execute commands directly on AWS. The ONLY deployment in AWS is the containerized SaaS microservice and its serverless wake trigger.
-  - **Verification**:
-    ```bash
-    curl -s http://rf.nakedcircuits.com:8000/health
-    # Or test the serverless wake trigger:
-    curl -s https://rfhealth.nakedcircuits.com
-    ```
-    - Expected response: `{"status":"ready", "instance_state":"running", ...}`.
-
-* **Option 2: If User Selects Direct Local Commands (`RF_BACKEND=local`)**:
+* **Option 1: Direct Local Commands Execution (`RF_BACKEND=local` - Canonical Default)**:
   - **Environment Configuration**: Ensure `RF_BACKEND=local` is active in `.env`.
   - **Operating Mechanism**: The agent executes EDA/simulation solvers headlessly inside the local Docker container via the standard launchers (`rf-suite\bin\rf-run.bat` on Windows or `./rf-suite/bin/rf-run` on Linux/WSL).
   - **Docker Host Architecture**:
@@ -147,6 +132,15 @@ Unless the user's initial prompt explicitly declared which backend to run on (e.
     3. **NOTIFY USER ON COMPLETION**:
        > *"The `rf-suite` Docker image has been successfully built and verified! Proceeding to Gate 3..."*
 
+* **Option 2: SaaS on AWS (`RF_BACKEND=aws_saas` - Active ONLY When API Service is Verified Online)**:
+  - **Precondition**: `http://rf.nakedcircuits.com:8000/health` MUST return HTTP 200 with status `"healthy"`. If unavailable, do not announce or use this option.
+  - **Zero Workstation EDA, Python, or WSL Dependencies**: No KiCad, FreeCAD, openEMS, Docker, Python, or WSL needed on the developer host.
+  - **Agent Intelligence Circuit Synthesis**: The AI Agent designs the schematic and passes specifications to the cloud SaaS microservice.
+  - **Operating Mechanism**: Pure cloud microservice architecture. The agent communicates with AWS strictly via HTTP REST endpoints (`/v1/projects/.../run` and `/v1/projects/.../artifacts/...`) using `rf-suite\bin\rf-client.bat` or native PowerShell / curl.
+  - **Verification**:
+    ```bash
+    curl -s http://rf.nakedcircuits.com:8000/health
+    ```
 * **Option 3: If User Selects SaaS on Local WSL (`RF_BACKEND=saas` - Local Deployment Testing)**:
   - **Environment Configuration**: Ensure `RF_BACKEND=saas` and `RF_SAAS_URL=http://127.0.0.1:8000` are active in `.env`.
   - **Operating Mechanism**: Used for local microservice deployment testing and validating REST API sync and FastMCP tools without cloud fees. The client sends HTTP requests to `http://127.0.0.1:8000`, which the local `rf-suite-env` container processes.
@@ -220,7 +214,16 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 > 2. **DO NOT ENTER PLANNING MODE**: Do NOT create `implementation_plan.md` or ask architectural planning questions. The workflow architecture is already established and fully automated.
 > 3. **DO NOT WRITE SCRATCH TEST SCRIPTS**: Do NOT write temporary Python scripts to test or research circuit algorithms.
 > 4. **JUMP STRAIGHT INTO EXECUTION ON TURN 1 (WHEN CIRCUIT IS PROMPTED)**: After completing Turn 0 provisioning (Gate 1 submodule + Gate 2 Backend), if a circuit description was provided, immediately launch **Task 1 (Schematic)** using the launcher corresponding to the configured backend:
->    - **For SaaS Backend (Canonical Recommended - AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
+>    - **For Direct Local Commands (Canonical Default - `RF_BACKEND=local`)**:
+>      ```bash
+>      # Windows:
+>      rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
+>
+>      # Linux / WSL:
+>      ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
+>      ```
+>      The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
+>    - **For SaaS Backend (Only When Configured & Verified Online - AWS SaaS: `RF_BACKEND=aws_saas` or Local SaaS: `RF_BACKEND=saas`)**:
 >      > [!CRITICAL]
 >      > **ZERO HOST PYTHON & ZERO HOST WSL ENFORCEMENT**:
 >      > When `RF_BACKEND=aws_saas` is active, the host system may have NO Python and NO WSL installed.
@@ -236,15 +239,6 @@ Once repository self-provisioning is confirmed (both Gate 1 submodule and Gate 2
 >      >    rf-suite\bin\rf-client.bat -ProjectName "<unique_name>" -SpecFile "projects\<unique_name>\spec.json" -Stages schematic
 >      >    ```
 >      >    The SaaS container in the cloud executes the heavy EDA tools (KiCad 10, FreeCAD, openEMS, Qucsator-RF), generates the `.kicad_sch`, renders the high-DPI zoomed vector crop, routes the PCB, and syncs all artifacts back to `projects/<unique_name>/` over HTTP.
->    - **For Direct Local Commands (`RF_BACKEND=local`)**:
->      ```bash
->      # Windows:
->      rf-suite\bin\rf-run.bat python -m agent.workflow --desc "<circuit description>" --stages schematic
->
->      # Linux / WSL:
->      ./rf-suite/bin/rf-run python3 -m agent.workflow --desc "<circuit description>" --stages schematic
->      ```
->    The `agent.workflow` engine automatically parses the description, generates mathematical specifications, selects footprints, routes CPWG lines, and exports the high-DPI zoomed schematic render.
 >    **MANDATORY IMMEDIATE RENDER DISPLAY**: As soon as Task 1 finishes, copy `schematic_zoomed.png` to `<appDataDir>\brain\<conversation-id>\` and IMMEDIATELY display the synthesized schematic render in chat text with `![Schematic](<absolute_path>)` and component specs. NEVER prompt to proceed or move to PCB layout without showing the schematic image!
 >    If no circuit description was given yet (e.g., initial repository checkout or environment setup), deliver the Invitation Greeting (§1.2 Gate 3) and await the user's circuit prompt.
 

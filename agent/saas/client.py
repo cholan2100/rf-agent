@@ -23,8 +23,8 @@ class RFSaasClient:
                 try:
                     with open(env_file, "w", encoding="utf-8") as f:
                         f.write(
-                            "# RF Suite SaaS Microservice Configuration\n"
-                            "RF_BACKEND=aws_saas\n"
+                            "# RF Agent Toolchain Configuration\n"
+                            "RF_BACKEND=local\n"
                             "RF_SAAS_URL=http://rf.nakedcircuits.com:8000\n"
                         )
                 except Exception:
